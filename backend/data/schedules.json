@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "synthetic": true,
+    "note": "Halt minutes and timings are synthetic but designed to be realistic (2-10 min typical, longer at junctions). day_offset is days after that train's own origin-day departure, not a calendar date. arrival is null at the origin stop, departure is null at the terminus stop."
+  },
+  "stops": [
+    {"train_number": "12295", "station_code": "SBC", "sequence": 1, "arrival": null, "departure": "20:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12295", "station_code": "GTL", "sequence": 2, "arrival": "23:40", "departure": "23:50", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "12295", "station_code": "WADI", "sequence": 3, "arrival": "02:30", "departure": "02:40", "halt_minutes": 10, "day_offset": 1},
+    {"train_number": "12295", "station_code": "SUR", "sequence": 4, "arrival": "04:10", "departure": "04:20", "halt_minutes": 10, "day_offset": 1},
+    {"train_number": "12295", "station_code": "WR", "sequence": 5, "arrival": "05:30", "departure": "05:35", "halt_minutes": 5, "day_offset": 1},
+    {"train_number": "12295", "station_code": "NGP", "sequence": 6, "arrival": "06:15", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "22823", "station_code": "YPR", "sequence": 1, "arrival": null, "departure": "09:30", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "22823", "station_code": "GTL", "sequence": 2, "arrival": "13:00", "departure": "13:10", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "22823", "station_code": "WADI", "sequence": 3, "arrival": "15:40", "departure": "15:50", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "22823", "station_code": "SUR", "sequence": 4, "arrival": "17:20", "departure": "17:30", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "22823", "station_code": "WR", "sequence": 5, "arrival": "18:35", "departure": "18:40", "halt_minutes": 5, "day_offset": 0},
+    {"train_number": "22823", "station_code": "NGP", "sequence": 6, "arrival": "19:20", "departure": null, "halt_minutes": 0, "day_offset": 0},
+
+    {"train_number": "16592", "station_code": "SBC", "sequence": 1, "arrival": null, "departure": "14:15", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "16592", "station_code": "GTL", "sequence": 2, "arrival": "17:45", "departure": "17:55", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "16592", "station_code": "WADI", "sequence": 3, "arrival": "20:25", "departure": "20:35", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "16592", "station_code": "SUR", "sequence": 4, "arrival": "22:00", "departure": "22:10", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "16592", "station_code": "WR", "sequence": 5, "arrival": "23:15", "departure": "23:20", "halt_minutes": 5, "day_offset": 0},
+    {"train_number": "16592", "station_code": "NGP", "sequence": 6, "arrival": "00:05", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "12539", "station_code": "NGP", "sequence": 1, "arrival": null, "departure": "08:40", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12539", "station_code": "G", "sequence": 2, "arrival": "10:30", "departure": "10:40", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "12539", "station_code": "KTE", "sequence": 3, "arrival": "13:20", "departure": "13:30", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "12539", "station_code": "MKP", "sequence": 4, "arrival": "16:50", "departure": "16:55", "halt_minutes": 5, "day_offset": 0},
+    {"train_number": "12539", "station_code": "ALD", "sequence": 5, "arrival": "19:00", "departure": "19:10", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "12539", "station_code": "BSB", "sequence": 6, "arrival": "21:10", "departure": null, "halt_minutes": 0, "day_offset": 0},
+
+    {"train_number": "15665", "station_code": "NGP", "sequence": 1, "arrival": null, "departure": "14:20", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "15665", "station_code": "G", "sequence": 2, "arrival": "16:10", "departure": "16:20", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "15665", "station_code": "KTE", "sequence": 3, "arrival": "19:00", "departure": "19:10", "halt_minutes": 10, "day_offset": 0},
+    {"train_number": "15665", "station_code": "MKP", "sequence": 4, "arrival": "22:30", "departure": "22:35", "halt_minutes": 5, "day_offset": 0},
+    {"train_number": "15665", "station_code": "ALD", "sequence": 5, "arrival": "00:40", "departure": "00:50", "halt_minutes": 10, "day_offset": 1},
+    {"train_number": "15665", "station_code": "BSB", "sequence": 6, "arrival": "03:10", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "18477", "station_code": "NGP", "sequence": 1, "arrival": null, "departure": "22:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "18477", "station_code": "G", "sequence": 2, "arrival": "23:50", "departure": "00:00", "halt_minutes": 10, "day_offset": 1},
+    {"train_number": "18477", "station_code": "KTE", "sequence": 3, "arrival": "02:40", "departure": "02:50", "halt_minutes": 10, "day_offset": 1},
+    {"train_number": "18477", "station_code": "MKP", "sequence": 4, "arrival": "06:10", "departure": "06:15", "halt_minutes": 5, "day_offset": 1},
+    {"train_number": "18477", "station_code": "ALD", "sequence": 5, "arrival": "08:20", "departure": "08:30", "halt_minutes": 10, "day_offset": 1},
+    {"train_number": "18477", "station_code": "BSB", "sequence": 6, "arrival": "12:30", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "12622", "station_code": "MAS", "sequence": 1, "arrival": null, "departure": "22:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12622", "station_code": "NDLS", "sequence": 2, "arrival": "06:00", "departure": null, "halt_minutes": 0, "day_offset": 2},
+
+    {"train_number": "12951", "station_code": "BCT", "sequence": 1, "arrival": null, "departure": "17:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12951", "station_code": "NDLS", "sequence": 2, "arrival": "08:15", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "12628", "station_code": "SBC", "sequence": 1, "arrival": null, "departure": "19:15", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12628", "station_code": "NDLS", "sequence": 2, "arrival": "05:30", "departure": null, "halt_minutes": 0, "day_offset": 2},
+
+    {"train_number": "12780", "station_code": "SC", "sequence": 1, "arrival": null, "departure": "06:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12780", "station_code": "MAS", "sequence": 2, "arrival": "14:30", "departure": null, "halt_minutes": 0, "day_offset": 0},
+
+    {"train_number": "12302", "station_code": "HWH", "sequence": 1, "arrival": null, "departure": "16:50", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12302", "station_code": "NDLS", "sequence": 2, "arrival": "10:00", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "12137", "station_code": "CSMT", "sequence": 1, "arrival": null, "departure": "19:35", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12137", "station_code": "DLI", "sequence": 2, "arrival": "21:15", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "12649", "station_code": "SBC", "sequence": 1, "arrival": null, "departure": "06:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "12649", "station_code": "NZM", "sequence": 2, "arrival": "05:30", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "16536", "station_code": "SBC", "sequence": 1, "arrival": null, "departure": "20:30", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "16536", "station_code": "SUR", "sequence": 2, "arrival": "09:00", "departure": null, "halt_minutes": 0, "day_offset": 1},
+
+    {"train_number": "17225", "station_code": "SC", "sequence": 1, "arrival": null, "departure": "11:00", "halt_minutes": 0, "day_offset": 0},
+    {"train_number": "17225", "station_code": "PUNE", "sequence": 2, "arrival": "23:30", "departure": null, "halt_minutes": 0, "day_offset": 0}
+  ]
+}

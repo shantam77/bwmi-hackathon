@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "synthetic": true,
+    "note": "Real train numbers/names are used where known (12295 Sanghamitra, 12539 Nagpur-Varanasi, 12628 Karnataka Express). Filler trains use plausible-format numbers for network density. No availability data lives in this file -- see availability.json."
+  },
+  "trains": [
+    {"number": "12295", "name": "Sanghamitra Express", "classes": ["SL", "3A", "2A", "1A"], "days_of_operation": ["daily"]},
+    {"number": "22823", "name": "Bengaluru Nagpur SF Express", "classes": ["SL", "3A", "2A"], "days_of_operation": ["daily"]},
+    {"number": "16592", "name": "Karnataka Nagpur Express", "classes": ["SL", "3A"], "days_of_operation": ["daily"]},
+
+    {"number": "12539", "name": "Nagpur Varanasi Express", "classes": ["SL", "3A", "2A"], "days_of_operation": ["daily"]},
+    {"number": "15665", "name": "Nagpur Varanasi SF Express", "classes": ["SL", "3A"], "days_of_operation": ["daily"]},
+    {"number": "18477", "name": "Nagpur Varanasi Weekly Express", "classes": ["SL", "3A", "2A"], "days_of_operation": ["daily"]},
+
+    {"number": "12622", "name": "Tamil Nadu Express", "classes": ["SL", "3A", "2A"], "days_of_operation": ["daily"]},
+    {"number": "12951", "name": "Mumbai Rajdhani", "classes": ["3A", "2A", "1A"], "days_of_operation": ["daily"]},
+    {"number": "12628", "name": "Karnataka Express", "classes": ["SL", "3A", "2A"], "days_of_operation": ["daily"]},
+    {"number": "12780", "name": "Secunderabad SF Express", "classes": ["SL", "3A"], "days_of_operation": ["daily"]},
+    {"number": "12302", "name": "Howrah Rajdhani", "classes": ["3A", "2A", "1A"], "days_of_operation": ["daily"]},
+    {"number": "12137", "name": "Punjab Mail", "classes": ["SL", "3A"], "days_of_operation": ["daily"]},
+    {"number": "12649", "name": "Karnataka Sampark Kranti", "classes": ["SL", "3A", "2A"], "days_of_operation": ["daily"]},
+    {"number": "16536", "name": "Gol Gumbaz Express", "classes": ["SL", "3A"], "days_of_operation": ["daily"]},
+    {"number": "17225", "name": "Amaravati Express", "classes": ["SL", "3A"], "days_of_operation": ["daily"]}
+  ]
+}

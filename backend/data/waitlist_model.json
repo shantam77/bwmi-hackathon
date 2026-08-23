@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "synthetic": true,
+    "note": "Calibrated to published clearance patterns (GNWL clears first and fastest, RLWL and PQWL slower, TQWL worst), not real IRCTC historical PNR data -- that data is not publicly available outside IRCTC/CRIS. probability = clamp(1 - position / (clearance_ceiling * seasonal_modifier), 0, 1) * 100. Band: >70 confirm, 30-70 probable, <30 low."
+  },
+  "quotas": [
+    {
+      "quota": "GN",
+      "waitlist_type": "GNWL",
+      "clearance_ceiling": 40,
+      "seasonal_modifier": 1.0,
+      "description": "GNWL, the general queue. It clears before RLWL and PQWL because it draws from the full quota."
+    },
+    {
+      "quota": "RL",
+      "waitlist_type": "RLWL",
+      "clearance_ceiling": 15,
+      "seasonal_modifier": 1.0,
+      "description": "RLWL has a small separate quota for a remote boarding point and rarely clears this late."
+    },
+    {
+      "quota": "PQ",
+      "waitlist_type": "PQWL",
+      "clearance_ceiling": 20,
+      "seasonal_modifier": 1.0,
+      "description": "PQWL draws from a pooled quota shared across intermediate stations, and clears less predictably than GNWL."
+    },
+    {
+      "quota": "TQ",
+      "waitlist_type": "TQWL",
+      "clearance_ceiling": 8,
+      "seasonal_modifier": 1.0,
+      "description": "TQWL is the Tatkal waitlist -- the smallest quota and the worst odds of the four."
+    }
+  ]
+}

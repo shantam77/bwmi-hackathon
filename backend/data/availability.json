@@ -1,0 +1,51 @@
+{
+  "_meta": {
+    "synthetic": true,
+    "note": "All seat counts, waitlist positions and fares are synthetic. Keyed by (train_number, travel_class, quota) rather than a specific calendar date -- a deliberate simplification, see docs/04-implementation-plan.md. 'date' is the reference demo date the row represents, not a lookup key. quota values: GN=General, RL=Remote Location, PQ=Pooled, TQ=Tatkal; a WL status implies waitlist type <quota>WL (e.g. GN -> GNWL)."
+  },
+  "entries": [
+    {"train_number": "12295", "travel_class": "SL", "quota": "GN", "status": "WL", "seats_or_position": 18, "fare_per_passenger": 620, "date": "2026-09-04"},
+    {"train_number": "12295", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 4, "fare_per_passenger": 1040, "date": "2026-09-04"},
+    {"train_number": "12295", "travel_class": "2A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 8, "fare_per_passenger": 1650, "date": "2026-09-04"},
+    {"train_number": "12295", "travel_class": "1A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 2, "fare_per_passenger": 2800, "date": "2026-09-04"},
+
+    {"train_number": "22823", "travel_class": "SL", "quota": "GN", "status": "WL", "seats_or_position": 45, "fare_per_passenger": 580, "date": "2026-09-04"},
+    {"train_number": "22823", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 6, "fare_per_passenger": 990, "date": "2026-09-04"},
+    {"train_number": "22823", "travel_class": "2A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 3, "fare_per_passenger": 1580, "date": "2026-09-04"},
+
+    {"train_number": "16592", "travel_class": "SL", "quota": "RL", "status": "WL", "seats_or_position": 12, "fare_per_passenger": 560, "date": "2026-09-04"},
+    {"train_number": "16592", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 2, "fare_per_passenger": 970, "date": "2026-09-04"},
+
+    {"train_number": "12539", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 26, "fare_per_passenger": 945, "date": "2026-09-05"},
+    {"train_number": "12539", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 10, "fare_per_passenger": 1620, "date": "2026-09-05"},
+    {"train_number": "12539", "travel_class": "2A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 4, "fare_per_passenger": 2450, "date": "2026-09-05"},
+
+    {"train_number": "15665", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 6, "fare_per_passenger": 945, "date": "2026-09-05"},
+    {"train_number": "15665", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 8, "fare_per_passenger": 1620, "date": "2026-09-05"},
+
+    {"train_number": "18477", "travel_class": "SL", "quota": "TQ", "status": "WL", "seats_or_position": 30, "fare_per_passenger": 945, "date": "2026-09-05"},
+    {"train_number": "18477", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 5, "fare_per_passenger": 1620, "date": "2026-09-05"},
+    {"train_number": "18477", "travel_class": "2A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 2, "fare_per_passenger": 2450, "date": "2026-09-05"},
+
+    {"train_number": "12622", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 40, "fare_per_passenger": 760, "date": "2026-09-04"},
+    {"train_number": "12622", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 15, "fare_per_passenger": 1980, "date": "2026-09-04"},
+
+    {"train_number": "12951", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 20, "fare_per_passenger": 2150, "date": "2026-09-04"},
+    {"train_number": "12951", "travel_class": "2A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 10, "fare_per_passenger": 3100, "date": "2026-09-04"},
+
+    {"train_number": "12628", "travel_class": "SL", "quota": "GN", "status": "WL", "seats_or_position": 25, "fare_per_passenger": 810, "date": "2026-09-04"},
+    {"train_number": "12628", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 12, "fare_per_passenger": 2050, "date": "2026-09-04"},
+
+    {"train_number": "12780", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 50, "fare_per_passenger": 310, "date": "2026-09-04"},
+
+    {"train_number": "12302", "travel_class": "3A", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 18, "fare_per_passenger": 2300, "date": "2026-09-04"},
+
+    {"train_number": "12137", "travel_class": "SL", "quota": "PQ", "status": "WL", "seats_or_position": 8, "fare_per_passenger": 650, "date": "2026-09-04"},
+
+    {"train_number": "12649", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 30, "fare_per_passenger": 720, "date": "2026-09-04"},
+
+    {"train_number": "16536", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 60, "fare_per_passenger": 340, "date": "2026-09-04"},
+
+    {"train_number": "17225", "travel_class": "SL", "quota": "GN", "status": "AVAILABLE", "seats_or_position": 22, "fare_per_passenger": 280, "date": "2026-09-04"}
+  ]
+}

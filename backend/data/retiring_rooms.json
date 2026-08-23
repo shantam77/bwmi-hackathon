@@ -1,0 +1,22 @@
+{
+  "_meta": {
+    "synthetic": true,
+    "note": "Tariffs are synthetic but in line with published ranges. Nagpur's figures match the persona's overnight layover exactly (docs/03-product-design-document.md Flow F). Available only at major stations, matching the real rr.irctc.co.in pattern -- Phase 5's domain/retiring.py must still gate on PNR status (CNF/RAC only) regardless of station availability."
+  },
+  "stations": [
+    {"station_code": "NGP", "room_type": "non_ac_private", "tariff": 520, "min_hours": 3, "max_hours": 48, "available": true},
+    {"station_code": "NGP", "room_type": "ac_private", "tariff": 1150, "min_hours": 3, "max_hours": 48, "available": true},
+
+    {"station_code": "SBC", "room_type": "non_ac_private", "tariff": 480, "min_hours": 3, "max_hours": 48, "available": true},
+    {"station_code": "SBC", "room_type": "ac_private", "tariff": 1200, "min_hours": 3, "max_hours": 48, "available": true},
+
+    {"station_code": "BSB", "room_type": "non_ac_private", "tariff": 450, "min_hours": 3, "max_hours": 48, "available": true},
+    {"station_code": "BSB", "room_type": "ac_private", "tariff": 1100, "min_hours": 3, "max_hours": 48, "available": true},
+
+    {"station_code": "NDLS", "room_type": "non_ac_private", "tariff": 600, "min_hours": 3, "max_hours": 48, "available": true},
+    {"station_code": "NDLS", "room_type": "ac_private", "tariff": 1450, "min_hours": 3, "max_hours": 48, "available": true},
+
+    {"station_code": "GTL", "room_type": "non_ac_private", "tariff": 0, "min_hours": 0, "max_hours": 0, "available": false},
+    {"station_code": "WADI", "room_type": "non_ac_private", "tariff": 0, "min_hours": 0, "max_hours": 0, "available": false}
+  ]
+}

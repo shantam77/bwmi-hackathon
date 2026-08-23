@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "synthetic": true,
+    "note": "Vendors and cutoffs are synthetic. cutoff_minutes is how much advance notice the vendor needs before the train's scheduled arrival at that station -- Phase 5's domain/catering.py filters to vendors whose cutoff fits inside the time remaining, which is the actual feature."
+  },
+  "vendors": [
+    {"station_code": "GTL", "name": "Guntakal Junction Tiffins", "cutoff_minutes": 20, "price_band": "₹", "menu_highlight": "South Indian thali"},
+    {"station_code": "GTL", "name": "Zomato Rail Partner - Guntakal", "cutoff_minutes": 35, "price_band": "₹₹", "menu_highlight": "North Indian meals"},
+
+    {"station_code": "WADI", "name": "Wadi Junction Fast Food", "cutoff_minutes": 15, "price_band": "₹", "menu_highlight": "Vada pav, tea"},
+    {"station_code": "WADI", "name": "RailRestro - Wadi", "cutoff_minutes": 40, "price_band": "₹₹", "menu_highlight": "Veg biryani"},
+
+    {"station_code": "SUR", "name": "Solapur Sweets & Meals", "cutoff_minutes": 20, "price_band": "₹", "menu_highlight": "Solapur chutney, roti"},
+    {"station_code": "SUR", "name": "ECatering.app - Solapur", "cutoff_minutes": 30, "price_band": "₹₹", "menu_highlight": "Mini thali"},
+
+    {"station_code": "WR", "name": "Wardha Quick Bites", "cutoff_minutes": 10, "price_band": "₹", "menu_highlight": "Sandwiches, chips"},
+    {"station_code": "WR", "name": "RelFood - Wardha", "cutoff_minutes": 25, "price_band": "₹₹", "menu_highlight": "Veg meals"},
+
+    {"station_code": "G", "name": "Gondia Junction Kitchen", "cutoff_minutes": 20, "price_band": "₹", "menu_highlight": "Poha, tea"},
+    {"station_code": "G", "name": "Zomato Rail Partner - Gondia", "cutoff_minutes": 35, "price_band": "₹₹", "menu_highlight": "Veg thali"},
+
+    {"station_code": "KTE", "name": "Katni Rail Caterers", "cutoff_minutes": 20, "price_band": "₹", "menu_highlight": "Jeera rice, dal"},
+    {"station_code": "KTE", "name": "RailRestro - Katni", "cutoff_minutes": 40, "price_band": "₹₹", "menu_highlight": "Paneer meals"},
+
+    {"station_code": "MKP", "name": "Manikpur Snacks Corner", "cutoff_minutes": 10, "price_band": "₹", "menu_highlight": "Samosa, tea"},
+    {"station_code": "MKP", "name": "ECatering.app - Manikpur", "cutoff_minutes": 30, "price_band": "₹₹", "menu_highlight": "Veg meals"},
+
+    {"station_code": "ALD", "name": "Prayagraj Junction Bhoj", "cutoff_minutes": 20, "price_band": "₹", "menu_highlight": "Kachori sabzi"},
+    {"station_code": "ALD", "name": "RelFood - Prayagraj", "cutoff_minutes": 45, "price_band": "₹₹₹", "menu_highlight": "Full thali with dessert"}
+  ]
+}

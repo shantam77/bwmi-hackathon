@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "synthetic": false,
+    "note": "Deadline rules follow docs/01-research-context-log.md section 5. Sources disagree on some exact windows (one cites ~4h general, another 30min-before-departure for the delay case) -- this implements one consistent set, disclosed here and in the product's honesty panel, not claimed as authoritative."
+  },
+  "reason_codes": [
+    {
+      "code": "LATE_3H",
+      "label": "Train late by more than 3 hours, passenger did not travel",
+      "deadline_rule": "before_actual_departure",
+      "refund_basis": "full_fare",
+      "needs_certificate": false,
+      "auto_refund": false
+    },
+    {
+      "code": "CLASS_DOWNGRADE",
+      "label": "Travelled in a lower class than booked",
+      "deadline_rule": "within_3h_of_actual_departure",
+      "refund_basis": "fare_difference",
+      "needs_certificate": true,
+      "auto_refund": false
+    },
+    {
+      "code": "AC_FAILURE",
+      "label": "AC failure in an AC coach",
+      "deadline_rule": "within_72h_of_scheduled_arrival",
+      "refund_basis": "partial_fare_ac_charges",
+      "needs_certificate": true,
+      "auto_refund": false
+    },
+    {
+      "code": "TERMINATED_SHORT",
+      "label": "Train terminated short of destination or diverted",
+      "deadline_rule": "within_72h_of_scheduled_arrival",
+      "refund_basis": "proportionate_fare",
+      "needs_certificate": true,
+      "auto_refund": false
+    },
+    {
+      "code": "GENERAL",
+      "label": "Other general refund case",
+      "deadline_rule": "within_72h_of_scheduled_arrival",
+      "refund_basis": "full_fare_minus_charges",
+      "needs_certificate": false,
+      "auto_refund": false
+    },
+    {
+      "code": "TRAIN_CANCELLED",
+      "label": "Train fully cancelled by Railways",
+      "deadline_rule": "no_limit_auto_refund",
+      "refund_basis": "full_fare_auto",
+      "needs_certificate": false,
+      "auto_refund": true
+    },
+    {
+      "code": "WAITLIST_NOT_CLEARED",
+      "label": "Waitlisted ticket never confirmed after chart preparation",
+      "deadline_rule": "no_limit_auto_refund",
+      "refund_basis": "full_fare_minus_service_charge",
+      "needs_certificate": false,
+      "auto_refund": true
+    }
+  ]
+}
