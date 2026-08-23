@@ -4,7 +4,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+def _normalize_database_url(raw: str) -> str:
+    """Railway (and most providers) hand out postgresql:// or the legacy
+    postgres://. We install psycopg (v3), so SQLAlchemy needs the dialect
+    spelled out explicitly, or it defaults to the psycopg2 driver we don't
+    have installed."""
+    if not raw:
+        return raw
+    if raw.startswith("postgresql+"):
+        return raw
+    if raw.startswith("postgresql://"):
+        return raw.replace("postgresql://", "postgresql+psycopg://", 1)
+    if raw.startswith("postgres://"):
+        return raw.replace("postgres://", "postgresql+psycopg://", 1)
+    return raw
+
+
+DATABASE_URL = _normalize_database_url(os.environ.get("DATABASE_URL", ""))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 
