@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import DATABASE_URL, FRONTEND_ORIGIN
 from app.db import init_db
+from app.routers import chat, session as session_router
 from app.session import SessionMiddleware
 
 
@@ -25,6 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(SessionMiddleware)
+
+app.include_router(chat.router)
+app.include_router(session_router.router)
 
 
 @app.get("/api/health")

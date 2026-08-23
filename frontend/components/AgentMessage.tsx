@@ -1,0 +1,44 @@
+import type { ChatMessage, OptionCardProps, PaymentSheetProps, PNRConfirmationProps } from "@/lib/types";
+import OptionCard from "./OptionCard";
+import PaymentSheet from "./PaymentSheet";
+import PNRConfirmation from "./PNRConfirmation";
+
+export default function AgentMessage({
+  message,
+  onSendMessage,
+  disabled,
+}: {
+  message: ChatMessage;
+  onSendMessage: (text: string) => void;
+  disabled?: boolean;
+}) {
+  const component = message.component;
+
+  return (
+    <div className="bg-raised max-w-[85%] self-start rounded px-3 py-2">
+      <p className="text-ink whitespace-pre-wrap text-sm">{message.content}</p>
+
+      {component?.component === "OptionCard" && (
+        <div className="mt-2">
+          <OptionCard {...(component.props as unknown as OptionCardProps)} />
+        </div>
+      )}
+
+      {component?.component === "PaymentSheet" && (
+        <div className="mt-2">
+          <PaymentSheet
+            props={component.props as unknown as PaymentSheetProps}
+            onConfirm={() => onSendMessage("Confirm payment")}
+            disabled={disabled}
+          />
+        </div>
+      )}
+
+      {component?.component === "PNRConfirmation" && (
+        <div className="mt-2">
+          <PNRConfirmation {...(component.props as unknown as PNRConfirmationProps)} />
+        </div>
+      )}
+    </div>
+  );
+}

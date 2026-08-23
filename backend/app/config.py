@@ -22,6 +22,12 @@ def _normalize_database_url(raw: str) -> str:
 
 DATABASE_URL = _normalize_database_url(os.environ.get("DATABASE_URL", ""))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+# The project's OpenAI API key is restricted to exactly this model -- every
+# other model is blocked at the key level. Do not change this without
+# confirming the key's allowed-model list first.
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
+
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 
 # "production" (Vercel <-> Railway, cross-origin) needs SameSite=None; Secure,

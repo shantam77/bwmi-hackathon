@@ -16,6 +16,7 @@ def _sample_plan() -> JourneyPlan:
         departure_day_offset=0,
         arrival_day_offset=1,
         travel_class="SL",
+        quota="GN",
         status="WL",
         seats_or_position=18,
         fare_per_passenger=620,

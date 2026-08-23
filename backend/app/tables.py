@@ -46,9 +46,14 @@ class PNR(Base):
 
     id: Mapped[str] = mapped_column(primary_key=True, default=_uuid)
     session_id: Mapped[str] = mapped_column(index=True)
-    journey_id: Mapped[str] = mapped_column(ForeignKey("journeys.id"))
+    journey_id: Mapped[str | None] = mapped_column(ForeignKey("journeys.id"))
     pnr_number: Mapped[str]
     train_number: Mapped[str]
+    train_name: Mapped[str]
+    from_station: Mapped[str]
+    to_station: Mapped[str]
+    date: Mapped[str]
+    departure: Mapped[str]
     travel_class: Mapped[str]
     status: Mapped[str]
     fare_total: Mapped[int]
@@ -100,4 +105,20 @@ class Message(Base):
     role: Mapped[str]
     content: Mapped[str]
     component_json: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+
+
+class AgentSessionItem(Base):
+    """Raw OpenAI Agents SDK conversation-history items (tool calls, tool
+    outputs, reasoning items, etc.) -- deliberately separate from Message,
+    which is our own UI-rendering rehydration table. Backs app/agent/session.py's
+    PostgresSession, so the SDK's Sessions support lands in this same Postgres
+    instance instead of a separate SQLite file."""
+
+    __tablename__ = "agent_session_items"
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=_uuid)
+    session_id: Mapped[str] = mapped_column(index=True)
+    sequence: Mapped[int]
+    item_json: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow)

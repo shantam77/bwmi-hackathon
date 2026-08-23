@@ -96,6 +96,7 @@ class Leg(BaseModel):
     departure_day_offset: int
     arrival_day_offset: int
     travel_class: str
+    quota: str
     status: str
     seats_or_position: int
     fare_per_passenger: int
@@ -114,3 +115,50 @@ class WaitlistPrediction(BaseModel):
     waitlist_type: str
     position: int
     explanation: str
+
+
+class PassengerInput(BaseModel):
+    name: str
+    age: int
+    berth_preference: str | None = None
+
+
+class BookingQuote(BaseModel):
+    train_number: str
+    train_name: str
+    from_station: str
+    to_station: str
+    date: str
+    travel_class: str
+    status: str
+    seats_or_position: int
+    passengers: list[PassengerInput]
+    fare_per_passenger: int
+    total_fare: int
+    senior_citizen_note: str | None = None
+
+
+class BookingConfirmation(BaseModel):
+    pnr: str
+    train_number: str
+    train_name: str
+    departure: str
+    date: str
+    travel_class: str
+    status: str
+    passengers: list[PassengerInput]
+    total_fare: int
+
+
+class PNRRecord(BaseModel):
+    pnr: str
+    train_number: str
+    train_name: str
+    from_station: str
+    to_station: str
+    date: str
+    departure: str
+    travel_class: str
+    status: str
+    total_fare: int
+    passengers: list[PassengerInput]

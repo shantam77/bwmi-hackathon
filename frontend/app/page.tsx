@@ -1,48 +1,120 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
-
-type HealthResponse = {
-  status: string;
-  session_id: string;
-};
+import { parseSSE } from "@/lib/stream";
+import type { ChatMessage, SessionResponse } from "@/lib/types";
+import Thread from "@/components/Thread";
 
 export default function Home() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    apiFetch("/api/health")
-      .then((res) => {
-        if (!res.ok) throw new Error(`Backend responded ${res.status}`);
-        return res.json();
+    apiFetch("/api/session")
+      .then((res) => res.json())
+      .then((data: SessionResponse) => {
+        // Rehydration can resolve after the user has already started a new
+        // conversation locally (React Strict Mode double-invokes this effect
+        // in dev, and the fetch can simply be slow). Only apply it if
+        // nothing has happened locally yet -- never stomp newer state with
+        // a stale snapshot.
+        setMessages((prev) =>
+          prev.length === 0
+            ? data.messages.map((m) => ({
+                role: m.role,
+                content: m.content,
+                component: m.component,
+              }))
+            : prev,
+        );
+        setLoaded(true);
       })
-      .then(setHealth)
-      .catch((err) => setError(String(err)));
+      .catch(() => setLoaded(true));
   }, []);
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function sendMessage(text: string) {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text },
+      { role: "agent", content: "", component: null },
+    ]);
+    setInput("");
+
+    try {
+      const res = await apiFetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      for await (const event of parseSSE(res)) {
+        if (event.type === "token") {
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            next[next.length - 1] = { ...last, content: last.content + event.content };
+            return next;
+          });
+        } else if (event.type === "component") {
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            next[next.length - 1] = {
+              ...last,
+              component: { component: event.component, props: event.props },
+            };
+            return next;
+          });
+        } else if (event.type === "done") {
+          break;
+        }
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
-      <h1 className="text-2xl font-semibold text-ink">Saarthi</h1>
-      <p className="text-ink-dim text-sm">Phase 0 seam check: frontend &rarr; backend</p>
+    <main className="bg-surface mx-auto flex h-screen max-w-[520px] flex-col">
+      <header className="border-rail border-b px-4 py-3">
+        <h1 className="text-ink text-sm font-semibold">Saarthi</h1>
+      </header>
 
-      {error && (
-        <div className="rounded border-l-2 border-signal-stop bg-raised px-4 py-3 text-sm text-ink">
-          Could not reach the backend: {error}
-        </div>
-      )}
+      {loaded && <Thread messages={messages} onSendMessage={sendMessage} disabled={sending} />}
+      <div ref={bottomRef} />
 
-      {health && (
-        <div className="rounded border-l-2 border-signal-go bg-raised px-4 py-3 font-mono text-sm text-ink">
-          <div>status: {health.status}</div>
-          <div>session_id: {health.session_id}</div>
-        </div>
-      )}
-
-      {!health && !error && (
-        <div className="text-ink-dim text-sm">Reaching backend&hellip;</div>
-      )}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          sendMessage(input);
+        }}
+        className="border-rail flex gap-2 border-t p-3"
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={sending}
+          placeholder="Type a message..."
+          className="bg-raised text-ink flex-1 rounded px-3 py-2 text-sm outline-none"
+        />
+        <button
+          type="submit"
+          disabled={sending}
+          className="bg-signal-go rounded px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+        >
+          Send
+        </button>
+      </form>
     </main>
   );
 }

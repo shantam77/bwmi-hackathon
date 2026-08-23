@@ -4,8 +4,8 @@ only ever sees plain Pydantic models, never ORM rows. Every function takes
 session_id and filters on it; there is no cross-session read in this file."""
 
 from app.db import get_session_factory
-from app.models import JourneyPlan
-from app.tables import ClockOffset, Journey, Message
+from app.models import JourneyPlan, PassengerInput, PNRRecord
+from app.tables import AgentSessionItem, ClockOffset, Journey, Message, Passenger, PNR
 
 # --- Clock offset ------------------------------------------------------------
 
@@ -86,3 +86,139 @@ def list_messages(session_id: str) -> list[Message]:
         )
         db.expunge_all()
         return rows
+
+
+# --- PNRs and passengers ------------------------------------------------------------
+
+
+def create_pnr(
+    session_id: str,
+    pnr_number: str,
+    train_number: str,
+    train_name: str,
+    from_station: str,
+    to_station: str,
+    date: str,
+    departure: str,
+    travel_class: str,
+    status: str,
+    fare_total: int,
+    passengers: list[PassengerInput],
+) -> None:
+    Session = get_session_factory()
+    with Session() as db:
+        pnr_row = PNR(
+            session_id=session_id,
+            journey_id=None,
+            pnr_number=pnr_number,
+            train_number=train_number,
+            train_name=train_name,
+            from_station=from_station,
+            to_station=to_station,
+            date=date,
+            departure=departure,
+            travel_class=travel_class,
+            status=status,
+            fare_total=fare_total,
+        )
+        db.add(pnr_row)
+        db.flush()
+        for p in passengers:
+            db.add(
+                Passenger(
+                    session_id=session_id,
+                    pnr_id=pnr_row.id,
+                    name=p.name,
+                    age=p.age,
+                    berth_preference=p.berth_preference,
+                    concession_flag=None,
+                )
+            )
+        db.commit()
+
+
+def get_pnr(session_id: str, pnr_number: str) -> PNRRecord | None:
+    Session = get_session_factory()
+    with Session() as db:
+        pnr_row = (
+            db.query(PNR)
+            .filter(PNR.session_id == session_id, PNR.pnr_number == pnr_number)
+            .first()
+        )
+        if pnr_row is None:
+            return None
+        passenger_rows = db.query(Passenger).filter(Passenger.pnr_id == pnr_row.id).all()
+        return PNRRecord(
+            pnr=pnr_row.pnr_number,
+            train_number=pnr_row.train_number,
+            train_name=pnr_row.train_name,
+            from_station=pnr_row.from_station,
+            to_station=pnr_row.to_station,
+            date=pnr_row.date,
+            departure=pnr_row.departure,
+            travel_class=pnr_row.travel_class,
+            status=pnr_row.status,
+            total_fare=pnr_row.fare_total,
+            passengers=[
+                PassengerInput(name=p.name, age=p.age, berth_preference=p.berth_preference)
+                for p in passenger_rows
+            ],
+        )
+
+
+# --- Agent SDK conversation history (separate from Message -- see AgentSessionItem) --
+
+
+def get_agent_session_items(session_id: str, limit: int | None = None) -> list[dict]:
+    Session = get_session_factory()
+    with Session() as db:
+        query = (
+            db.query(AgentSessionItem)
+            .filter(AgentSessionItem.session_id == session_id)
+            .order_by(AgentSessionItem.sequence.asc())
+        )
+        rows = query.all()
+        if limit is not None:
+            rows = rows[-limit:]
+        return [row.item_json for row in rows]
+
+
+def add_agent_session_items(session_id: str, items: list[dict]) -> None:
+    Session = get_session_factory()
+    with Session() as db:
+        next_sequence = (
+            db.query(AgentSessionItem)
+            .filter(AgentSessionItem.session_id == session_id)
+            .count()
+        )
+        for i, item in enumerate(items):
+            db.add(
+                AgentSessionItem(
+                    session_id=session_id, sequence=next_sequence + i, item_json=item
+                )
+            )
+        db.commit()
+
+
+def pop_agent_session_item(session_id: str) -> dict | None:
+    Session = get_session_factory()
+    with Session() as db:
+        row = (
+            db.query(AgentSessionItem)
+            .filter(AgentSessionItem.session_id == session_id)
+            .order_by(AgentSessionItem.sequence.desc())
+            .first()
+        )
+        if row is None:
+            return None
+        item = row.item_json
+        db.delete(row)
+        db.commit()
+        return item
+
+
+def clear_agent_session(session_id: str) -> None:
+    Session = get_session_factory()
+    with Session() as db:
+        db.query(AgentSessionItem).filter(AgentSessionItem.session_id == session_id).delete()
+        db.commit()
