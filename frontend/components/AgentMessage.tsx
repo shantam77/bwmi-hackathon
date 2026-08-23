@@ -1,4 +1,11 @@
-import type { ChatMessage, OptionCardProps, PaymentSheetProps, PNRConfirmationProps } from "@/lib/types";
+import type {
+  AlertProps,
+  ChatMessage,
+  OptionCardProps,
+  PaymentSheetProps,
+  PNRConfirmationProps,
+} from "@/lib/types";
+import AlertMessage from "./AlertMessage";
 import OptionCard from "./OptionCard";
 import PaymentSheet from "./PaymentSheet";
 import PNRConfirmation from "./PNRConfirmation";
@@ -13,6 +20,16 @@ export default function AgentMessage({
   disabled?: boolean;
 }) {
   const component = message.component;
+
+  // Alerts are visually distinct from ordinary replies (PDD section 7) --
+  // full width, severity-colored left border, no chat-bubble treatment.
+  if (component?.component === "AlertMessage") {
+    return (
+      <div className="w-full max-w-[85%] self-start">
+        <AlertMessage props={component.props as unknown as AlertProps} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-raised max-w-[85%] self-start rounded px-3 py-2">

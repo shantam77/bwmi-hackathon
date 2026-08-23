@@ -71,6 +71,37 @@ advance. For the demo to be reproducible across every reviewer's session
 than a new hardcoded fact. Worth knowing this is a deliberate demo-
 determinism choice, not a prediction claim.
 
+### A countdown's clock offset can go stale if the demo clock is reset after it fires
+**Files:** `backend/app/routers/clock.py`, `frontend/components/CountdownChip.tsx`
+Fixed a real bug found by live E2E testing: `CountdownChip` was computing
+remaining time against the browser's real wall-clock time, but TDR deadlines
+are expressed on the *simulated* clock's timeline (months away from real
+"now" for the September persona date) -- the countdown showed 287 hours
+instead of ~47 minutes. Fixed by having each alert carry the
+`clock_offset_seconds` valid at the moment it fired, and having
+`CountdownChip` use `Date.now() + offsetSeconds*1000` as its reference "now".
+**Remaining narrow edge case:** each alert's offset is captured once, at fire
+time. If the user later clicks "Reset journey" (or another demo state that
+doesn't cause that specific alert to refire, e.g. because of dedup) while an
+old countdown-bearing alert is still on screen, that countdown will drift
+using its stale, no-longer-current offset. In practice the only
+countdown-bearing alert is D8, and dedup means a *worse* delay always fires a
+fresh D8 with a fresh offset -- so this only bites if the user resets and
+doesn't trigger a new delay alert. Low priority; would need a page-level
+"current offset" state threaded through Thread/AgentMessage/AlertMessage
+instead of a per-alert copy to fully close.
+
+### Page didn't reliably scroll to the bottom of the thread on load/refresh
+**File:** `frontend/app/page.tsx`
+Noticed in both Phase 2 and Phase 3 E2E screenshots: a hard refresh restored
+the full thread correctly (content was right), but the view reset to the top
+instead of showing the latest message -- likely `scrollIntoView` computing
+against a not-yet-painted page right after rehydration mounts the whole
+thread at once. Applied a fix (`requestAnimationFrame` + `behavior: "auto"`
+instead of `"smooth"`) but haven't re-run a dedicated E2E check for it yet --
+verify this during Phase 4/5's longer-thread E2E passes rather than trusting
+it blind.
+
 ---
 
 *(Phase 4+ entries added below as they come up.)*

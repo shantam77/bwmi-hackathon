@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { parseSSE } from "@/lib/stream";
 import type { ChatMessage, SessionResponse } from "@/lib/types";
+import DemoControls from "@/components/DemoControls";
 import Thread from "@/components/Thread";
 
 export default function Home() {
@@ -37,7 +38,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // requestAnimationFrame so this runs after layout has settled -- without
+    // it, scrollIntoView can compute against a not-yet-painted (too short)
+    // page, especially right after rehydration mounts the whole thread at
+    // once. "auto" not "smooth": instant is correct for a page load, and
+    // matches the PDD's near-zero-motion design anyway.
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
+    });
   }, [messages]);
 
   async function sendMessage(text: string) {
@@ -84,6 +92,36 @@ export default function Home() {
     }
   }
 
+  async function sendClockAction(demoState: string) {
+    if (sending) return;
+    setSending(true);
+
+    try {
+      const res = await apiFetch("/api/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ demo_state: demoState }),
+      });
+
+      for await (const event of parseSSE(res)) {
+        if (event.type === "alert") {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "agent",
+              content: (event.props.message as string) ?? "",
+              component: { component: "AlertMessage", props: event.props },
+            },
+          ]);
+        } else if (event.type === "done") {
+          break;
+        }
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <main className="bg-surface mx-auto flex h-screen max-w-[520px] flex-col">
       <header className="border-rail border-b px-4 py-3">
@@ -92,6 +130,8 @@ export default function Home() {
 
       {loaded && <Thread messages={messages} onSendMessage={sendMessage} disabled={sending} />}
       <div ref={bottomRef} />
+
+      <DemoControls onSelect={sendClockAction} disabled={sending} />
 
       <form
         onSubmit={(e) => {

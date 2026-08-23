@@ -27,6 +27,10 @@ class ClockOffset(Base):
 
     session_id: Mapped[str] = mapped_column(primary_key=True)
     offset_seconds: Mapped[int] = mapped_column(default=0)
+    # Which Demo Controls button is currently "active" for this session, so
+    # the frontend can show it selected and so engine/state.py can tell a
+    # simulated cancellation apart from an ordinary delay. Null = real time.
+    demo_state: Mapped[str | None] = mapped_column(default=None)
     updated_at: Mapped[datetime] = mapped_column(default=_utcnow, onupdate=_utcnow)
 
 
@@ -90,9 +94,15 @@ class FiredAlert(Base):
 
     id: Mapped[str] = mapped_column(primary_key=True, default=_uuid)
     session_id: Mapped[str] = mapped_column(index=True)
-    journey_id: Mapped[str | None] = mapped_column(ForeignKey("journeys.id"))
+    # Plain string, not a FK -- bookings are tracked by PNR number in this
+    # build (see PNR table), there's no populated Journey row to point at.
+    pnr_number: Mapped[str]
     alert_id: Mapped[str]
     severity: Mapped[str]
+    # Whatever would make this a materially different firing (e.g. the
+    # demo_state that triggered it). Jumping to the same demo state twice
+    # must not refire the alert; jumping to a worse one should.
+    dedup_key: Mapped[str]
     payload_json: Mapped[dict] = mapped_column(JSON)
     fired_at: Mapped[datetime] = mapped_column(default=_utcnow)
 

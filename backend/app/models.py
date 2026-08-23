@@ -162,3 +162,24 @@ class PNRRecord(BaseModel):
     status: str
     total_fare: int
     passengers: list[PassengerInput]
+
+
+class JourneyStatus(BaseModel):
+    """Everything the alert engine and the gate table need, computed fresh
+    from the PNR + simulated clock every time -- never stored independently.
+    Not a rigid named-state enum; PDD section 8's gate table is really a set
+    of facts, and facts are what this models."""
+
+    pnr: str
+    demo_state: str | None
+    now_iso: str
+    scheduled_departure_iso: str
+    delay_minutes: int
+    is_cancelled: bool
+    chart_prepared: bool
+    cleared: bool | None  # None until chart_prepared; True/False after
+    effective_status: str  # "WL" | "RAC" | "CNF"
+    tdr_eligible: bool
+    tdr_deadline_iso: str | None
+    tdr_auto_refund: bool  # cancelled or never-cleared WL -- no filing needed
+    retiring_room_eligible: bool

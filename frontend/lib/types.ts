@@ -69,6 +69,15 @@ export interface PNRConfirmationProps {
   total_fare: number;
 }
 
+export interface AlertProps {
+  severity?: string;
+  message?: string;
+  action?: string | null;
+  tdr_deadline_iso?: string | null;
+  clock_offset_seconds?: number;
+  [key: string]: unknown;
+}
+
 export interface MessageComponent {
   component: string;
   props: Record<string, unknown>;

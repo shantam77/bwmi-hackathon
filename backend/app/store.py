@@ -5,7 +5,7 @@ session_id and filters on it; there is no cross-session read in this file."""
 
 from app.db import get_session_factory
 from app.models import JourneyPlan, PassengerInput, PNRRecord
-from app.tables import AgentSessionItem, ClockOffset, Journey, Message, Passenger, PNR
+from app.tables import AgentSessionItem, ClockOffset, FiredAlert, Journey, Message, Passenger, PNR
 
 # --- Clock offset ------------------------------------------------------------
 
@@ -26,6 +26,82 @@ def set_clock_offset_seconds(session_id: str, offset_seconds: int) -> None:
         else:
             row.offset_seconds = offset_seconds
         db.commit()
+
+
+def get_demo_state(session_id: str) -> str | None:
+    Session = get_session_factory()
+    with Session() as db:
+        row = db.get(ClockOffset, session_id)
+        return row.demo_state if row else None
+
+
+def set_clock_offset_and_demo_state(
+    session_id: str, offset_seconds: int, demo_state: str | None
+) -> None:
+    Session = get_session_factory()
+    with Session() as db:
+        row = db.get(ClockOffset, session_id)
+        if row is None:
+            db.add(
+                ClockOffset(
+                    session_id=session_id, offset_seconds=offset_seconds, demo_state=demo_state
+                )
+            )
+        else:
+            row.offset_seconds = offset_seconds
+            row.demo_state = demo_state
+        db.commit()
+
+
+# --- Fired alerts (dedup) ------------------------------------------------------------
+
+
+def has_fired(session_id: str, pnr_number: str, alert_id: str, dedup_key: str) -> bool:
+    Session = get_session_factory()
+    with Session() as db:
+        row = (
+            db.query(FiredAlert)
+            .filter(
+                FiredAlert.session_id == session_id,
+                FiredAlert.pnr_number == pnr_number,
+                FiredAlert.alert_id == alert_id,
+                FiredAlert.dedup_key == dedup_key,
+            )
+            .first()
+        )
+        return row is not None
+
+
+def record_fired(
+    session_id: str, pnr_number: str, alert_id: str, severity: str, dedup_key: str, payload: dict
+) -> None:
+    Session = get_session_factory()
+    with Session() as db:
+        db.add(
+            FiredAlert(
+                session_id=session_id,
+                pnr_number=pnr_number,
+                alert_id=alert_id,
+                severity=severity,
+                dedup_key=dedup_key,
+                payload_json=payload,
+            )
+        )
+        db.commit()
+
+
+def list_fired_alerts(session_id: str, pnr_number: str) -> list[dict]:
+    Session = get_session_factory()
+    with Session() as db:
+        rows = (
+            db.query(FiredAlert)
+            .filter(FiredAlert.session_id == session_id, FiredAlert.pnr_number == pnr_number)
+            .order_by(FiredAlert.fired_at.asc())
+            .all()
+        )
+        return [
+            {"alert_id": r.alert_id, "severity": r.severity, **r.payload_json} for r in rows
+        ]
 
 
 # --- Journeys ------------------------------------------------------------
@@ -137,6 +213,26 @@ def create_pnr(
         db.commit()
 
 
+def _pnr_row_to_record(db, pnr_row) -> PNRRecord:
+    passenger_rows = db.query(Passenger).filter(Passenger.pnr_id == pnr_row.id).all()
+    return PNRRecord(
+        pnr=pnr_row.pnr_number,
+        train_number=pnr_row.train_number,
+        train_name=pnr_row.train_name,
+        from_station=pnr_row.from_station,
+        to_station=pnr_row.to_station,
+        date=pnr_row.date,
+        departure=pnr_row.departure,
+        travel_class=pnr_row.travel_class,
+        status=pnr_row.status,
+        total_fare=pnr_row.fare_total,
+        passengers=[
+            PassengerInput(name=p.name, age=p.age, berth_preference=p.berth_preference)
+            for p in passenger_rows
+        ],
+    )
+
+
 def get_pnr(session_id: str, pnr_number: str) -> PNRRecord | None:
     Session = get_session_factory()
     with Session() as db:
@@ -145,25 +241,19 @@ def get_pnr(session_id: str, pnr_number: str) -> PNRRecord | None:
             .filter(PNR.session_id == session_id, PNR.pnr_number == pnr_number)
             .first()
         )
-        if pnr_row is None:
-            return None
-        passenger_rows = db.query(Passenger).filter(Passenger.pnr_id == pnr_row.id).all()
-        return PNRRecord(
-            pnr=pnr_row.pnr_number,
-            train_number=pnr_row.train_number,
-            train_name=pnr_row.train_name,
-            from_station=pnr_row.from_station,
-            to_station=pnr_row.to_station,
-            date=pnr_row.date,
-            departure=pnr_row.departure,
-            travel_class=pnr_row.travel_class,
-            status=pnr_row.status,
-            total_fare=pnr_row.fare_total,
-            passengers=[
-                PassengerInput(name=p.name, age=p.age, berth_preference=p.berth_preference)
-                for p in passenger_rows
-            ],
+        return _pnr_row_to_record(db, pnr_row) if pnr_row else None
+
+
+def latest_pnr(session_id: str) -> PNRRecord | None:
+    Session = get_session_factory()
+    with Session() as db:
+        pnr_row = (
+            db.query(PNR)
+            .filter(PNR.session_id == session_id)
+            .order_by(PNR.created_at.desc())
+            .first()
         )
+        return _pnr_row_to_record(db, pnr_row) if pnr_row else None
 
 
 # --- Agent SDK conversation history (separate from Message -- see AgentSessionItem) --
