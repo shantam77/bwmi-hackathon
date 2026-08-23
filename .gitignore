@@ -1,0 +1,22 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
