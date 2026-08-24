@@ -22,7 +22,17 @@ class SessionMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        if is_new:
+        # A route handler (e.g. POST /api/session/new) may have already set
+        # its own session_id cookie on this response -- don't clobber it
+        # with the fallback ID generated above just because the *incoming*
+        # request had no cookie yet. Only reachable in practice if a route
+        # ever issues a fresh session before any cookie exists at all, but
+        # trusting request ordering here would be fragile.
+        already_set = any(
+            header.split("=", 1)[0] == SESSION_COOKIE_NAME
+            for header in response.headers.getlist("set-cookie")
+        )
+        if is_new and not already_set:
             response.set_cookie(
                 key=SESSION_COOKIE_NAME,
                 value=session_id,

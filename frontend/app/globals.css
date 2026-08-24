@@ -1,28 +1,45 @@
 @import "tailwindcss";
 
-/* Departure-board palette, from docs/03-product-design-document.md section 11.
-   Dark only, by design -- people book trains at night, on platforms, at low
-   screen brightness. There is no light-theme variant to maintain. */
+/* Departure-board palette. Dark only, by design -- people book trains at
+   night, on platforms, at low screen brightness. There is no light-theme
+   variant to maintain.
+
+   Neutrals lean navy rather than neutral slate -- Indian Railways' own
+   signage and IRCTC's branding both live in deep blue, not GitHub-dark
+   gray. --accent is a saffron/amber, doing double duty as a departure-board
+   LED color and a quiet nod to the tricolor -- used for brand and primary
+   actions ONLY. --signal-go/wait/stop stay reserved for actual journey
+   status (confirmed/waitlisted/critical) and are never reused as a CTA
+   color, so "this button does something" and "this ticket is confirmed"
+   never compete for the same green. */
 :root {
-  --surface: #0e1116;
-  --raised: #171c24;
-  --ink: #e8eaed;
-  --ink-dim: #9aa3af;
-  --signal-go: #3fb950;
-  --signal-wait: #d29922;
-  --signal-stop: #e5534b;
-  --rail: #2d3742;
+  --surface: #090c12;
+  --raised: #131a26;
+  --raised-2: #1b2434;
+  --ink: #edf1f7;
+  --ink-dim: #8996ab;
+  --rail: #253247;
+
+  --accent: #f2a33d;
+  --accent-ink: #1f1608;
+
+  --signal-go: #34c77b;
+  --signal-wait: #d9a13c;
+  --signal-stop: #ef5658;
 }
 
 @theme inline {
   --color-surface: var(--surface);
   --color-raised: var(--raised);
+  --color-raised-2: var(--raised-2);
   --color-ink: var(--ink);
   --color-ink-dim: var(--ink-dim);
+  --color-rail: var(--rail);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
   --color-signal-go: var(--signal-go);
   --color-signal-wait: var(--signal-wait);
   --color-signal-stop: var(--signal-stop);
-  --color-rail: var(--rail);
   --font-sans: var(--font-body);
   --font-mono: var(--font-numerals);
 }

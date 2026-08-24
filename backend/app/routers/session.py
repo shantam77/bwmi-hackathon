@@ -5,10 +5,14 @@ any component payload (OptionCard/PaymentSheet/PNRConfirmation/AlertMessage)
 that was on screen before a refresh, and the live PNR's status/deadline so a
 CountdownChip resumes accurately instead of restarting."""
 
-from fastapi import APIRouter, Request
+import uuid
+
+from fastapi import APIRouter, Request, Response
 
 from app import store
+from app.config import ENVIRONMENT
 from app.engine import state
+from app.session import SESSION_COOKIE_NAME
 
 router = APIRouter()
 
@@ -49,3 +53,22 @@ async def get_session(request: Request) -> dict:
         "state": journey_status.model_dump() if journey_status else None,
         "active_deadlines": active_deadlines,
     }
+
+
+@router.post("/api/session/new")
+async def new_session(response: Response) -> dict:
+    """Starts a fresh session for the "New chat" action -- issues a new
+    session_id cookie, overwriting the old one. The old session's rows are
+    left in Postgres untouched (harmless, orphaned, still inspectable if
+    ever needed) rather than destructively deleted -- matches how "log out
+    and start over" works in a real app, not a wipe."""
+    session_id = str(uuid.uuid4())
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=ENVIRONMENT == "production",
+        samesite="none" if ENVIRONMENT == "production" else "lax",
+        max_age=60 * 60 * 24 * 30,
+    )
+    return {"session_id": session_id}

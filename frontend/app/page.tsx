@@ -134,6 +134,12 @@ export default function Home() {
     }
   }
 
+  async function startNewChat() {
+    if (sending) return;
+    await apiFetch("/api/session/new", { method: "POST" });
+    setMessages([]);
+  }
+
   async function sendClockAction(demoState: string) {
     if (sending) return;
     setSending(true);
@@ -181,7 +187,16 @@ export default function Home() {
     <main className="bg-surface mx-auto flex h-screen max-w-[520px] flex-col">
       <header className="border-rail flex items-center justify-between border-b px-4 py-3">
         <h1 className="text-ink text-sm font-semibold">Saarthi</h1>
-        <HonestyPanel />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={startNewChat}
+            disabled={sending}
+            className="border-rail text-ink-dim hover:border-accent hover:text-accent rounded border px-2.5 py-1 text-xs transition-colors disabled:opacity-50"
+          >
+            New chat
+          </button>
+          <HonestyPanel />
+        </div>
       </header>
 
       {loaded && (
@@ -207,12 +222,12 @@ export default function Home() {
           onChange={(e) => setInput(e.target.value)}
           disabled={sending}
           placeholder="Type a message..."
-          className="bg-raised text-ink flex-1 rounded px-3 py-2 text-sm outline-none"
+          className="bg-raised text-ink focus:ring-accent/60 flex-1 rounded px-3 py-2 text-sm outline-none focus:ring-2"
         />
         <button
           type="submit"
           disabled={sending}
-          className="bg-signal-go rounded px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+          className="bg-accent text-accent-ink rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
           Send
         </button>

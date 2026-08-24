@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import AlertMessage from "./AlertMessage";
 import DecisionBlock from "./DecisionBlock";
+import FormattedText from "./FormattedText";
 import OptionCard from "./OptionCard";
 import PaymentSheet from "./PaymentSheet";
 import PNRConfirmation from "./PNRConfirmation";
@@ -81,7 +82,7 @@ export default function AgentMessage({
       {message.pending ? (
         <TypingIndicator label={message.content} />
       ) : (
-        <p className="text-ink whitespace-pre-wrap text-sm">{message.content}</p>
+        <FormattedText text={message.content} />
       )}
     </div>
   );

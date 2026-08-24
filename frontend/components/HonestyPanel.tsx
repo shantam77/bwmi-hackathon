@@ -69,7 +69,7 @@ export default function HonestyPanel() {
               </div>
               <a
                 href="/api-surface"
-                className="text-signal-go text-xs underline"
+                className="text-accent text-xs underline"
               >
                 See the proposed API surface &rarr;
               </a>

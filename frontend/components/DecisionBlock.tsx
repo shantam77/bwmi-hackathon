@@ -51,7 +51,7 @@ function OptionPanel({
       </div>
       <button
         onClick={onChoose}
-        className="bg-signal-go mt-2 w-full rounded px-3 py-1.5 text-xs font-medium text-black"
+        className="bg-accent text-accent-ink mt-2 w-full rounded px-3 py-1.5 text-xs font-medium"
       >
         Choose {option.name}
       </button>

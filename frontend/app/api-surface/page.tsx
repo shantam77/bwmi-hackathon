@@ -45,7 +45,7 @@ export default function ApiSurfacePage() {
   return (
     <main className="bg-surface mx-auto flex min-h-screen max-w-[640px] flex-col gap-6 px-4 py-6">
       <div>
-        <a href="/" className="text-signal-go text-xs underline">
+        <a href="/" className="text-accent text-xs underline">
           &larr; Back to Saarthi
         </a>
         <h1 className="text-ink mt-2 text-lg font-semibold">API surface</h1>
@@ -66,7 +66,7 @@ export default function ApiSurfacePage() {
             <div className="border-rail mt-2 divide-y rounded border">
               {data.implemented_endpoints.map((ep) => (
                 <div key={ep.path} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-baseline sm:gap-3">
-                  <code className="text-signal-go w-fit shrink-0 font-mono text-xs">
+                  <code className="text-accent w-fit shrink-0 font-mono text-xs">
                     {ep.method} {ep.path}
                   </code>
                   <p className="text-ink-dim text-xs">{ep.purpose}</p>
@@ -85,7 +85,7 @@ export default function ApiSurfacePage() {
             <div className="border-rail mt-2 divide-y rounded border">
               {data.proposed_mcp_tools.map((tool) => (
                 <div key={tool.name} className="flex flex-col gap-1 p-3">
-                  <code className="text-signal-go font-mono text-xs">{signature(tool)}</code>
+                  <code className="text-accent font-mono text-xs">{signature(tool)}</code>
                   <p className="text-ink-dim text-xs">{tool.description}</p>
                 </div>
               ))}

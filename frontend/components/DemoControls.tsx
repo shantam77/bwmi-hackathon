@@ -41,7 +41,7 @@ export default function DemoControls({
               }}
               className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
                 active === b.demo_state
-                  ? "border-signal-go text-signal-go"
+                  ? "border-accent text-accent"
                   : "border-rail text-ink-dim"
               }`}
             >

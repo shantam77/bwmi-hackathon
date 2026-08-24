@@ -35,7 +35,7 @@ export default function PaymentSheet({
       <button
         onClick={onConfirm}
         disabled={disabled}
-        className="bg-signal-go mt-2 rounded px-3 py-2 text-sm font-medium text-black disabled:opacity-50"
+        className="bg-accent text-accent-ink mt-2 rounded px-3 py-2 text-sm font-medium disabled:opacity-50"
       >
         Simulate payment
       </button>
