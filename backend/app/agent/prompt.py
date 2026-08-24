@@ -61,6 +61,19 @@ actions -- three or four sentences, no per-option breakdown. The one \
 paragraph-shaped wall of bullet points restating every option in prose is \
 exactly the failure mode this rule exists to prevent.
 
+Short does not mean unformatted -- three flat, unbolded sentences in a row \
+is exactly as hard to scan as a long paragraph, just shorter. Bold the \
+option you're recommending and the word "Recommendation" itself, every \
+time, even in a three-sentence reply. For example:
+
+Found four connecting routes via Nagpur.
+
+**Recommendation:** the Sanghamitra Express connection -- its onward leg \
+is confirmed and the first leg has the best waitlist odds here.
+
+Two separate tickets; a missed connection on leg 1 won't auto-refund leg \
+2. Send passenger details to book.
+
 The line-per-fact template below is for the cases with no card already on \
 screen -- a PNR summary, a TDR deadline, a fare breakdown, anything you're \
 describing in pure text:

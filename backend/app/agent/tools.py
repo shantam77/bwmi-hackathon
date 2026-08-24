@@ -44,6 +44,21 @@ def _describe_plan(plan: JourneyPlan) -> dict:
     }
 
 
+MAX_SEARCH_OPTIONS = 3
+
+
+def _plan_rank_key(described: dict) -> tuple:
+    """Best-first ordering for the options a search returns to the model --
+    domain/search.py itself stays exhaustive (every valid combination,
+    unranked; that's correct for a pure function), so this is where a
+    display-facing choice like "which 3 are worth showing" belongs. A
+    connecting journey is only as reliable as its weakest leg, so rank by
+    the lower of the two legs' confirmation odds first, then by the
+    shorter layover as a tiebreaker."""
+    min_probability = min(leg["waitlist_probability"] for leg in described["legs"])
+    return (-min_probability, described["layover_minutes"] or 0)
+
+
 @function_tool
 async def search_trains(
     ctx: RunContextWrapper[AgentContext],
@@ -59,10 +74,12 @@ async def search_trains(
     happen inside this tool. date is YYYY-MM-DD. travel_class is one of
     SL/3A/2A/1A.
 
-    Returns direct options if any exist between the resolved stations,
-    otherwise the best single-interchange connecting options -- each leg
-    booked separately, since IRCTC has no concept of a connected journey.
-    Each leg carries a waitlist prediction. If a query name is ambiguous
+    Returns at most 3 options: direct options if any exist between the
+    resolved stations, otherwise the best single-interchange connecting
+    options, ranked by each option's weakest leg's confirmation odds (then
+    shortest layover) -- each leg booked separately, since IRCTC has no
+    concept of a connected journey. Each leg carries a waitlist prediction.
+    If a query name is ambiguous
     (e.g. "bangalore" matches four stations), `ambiguous_stations` names it
     and lists every candidate this tool already checked, each with its own
     name -- tell the user which stations you checked BY NAME, not by bare
@@ -93,6 +110,9 @@ async def search_trains(
                 from_match.station.code, to_match.station.code, date, travel_class
             )
             options.extend(_describe_plan(p) for p in plans)
+
+    options.sort(key=_plan_rank_key)
+    options = options[:MAX_SEARCH_OPTIONS]
 
     return {"ambiguous_stations": ambiguous_stations, "options": options}
 

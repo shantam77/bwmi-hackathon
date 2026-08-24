@@ -37,11 +37,16 @@ export default function OptionCard({ ambiguous_stations, options }: OptionCardPr
       )}
       {options.map((option, i) => (
         <div key={i} className="border-rail bg-raised rounded border p-3">
-          {option.interchange && (
-            <p className="text-ink-dim mb-2 text-xs">
-              Via {option.interchange} &middot; layover {option.layover_minutes} min
-            </p>
-          )}
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-accent-ink bg-accent rounded px-1.5 py-0.5 text-[11px] font-bold tracking-wide">
+              OPTION {i + 1}
+            </span>
+            {option.interchange && (
+              <span className="text-ink-dim text-xs">
+                Via {option.interchange} &middot; layover {option.layover_minutes} min
+              </span>
+            )}
+          </div>
           {option.legs.map((leg, j) => {
             const bandLabel = BAND_LABEL[leg.waitlist_band] ?? leg.status;
             const countText =
