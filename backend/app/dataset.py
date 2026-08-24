@@ -49,6 +49,15 @@ TRAINS_BY_NUMBER: dict[str, Train] = {t.number: t for t in TRAINS}
 WAITLIST_QUOTAS_BY_QUOTA: dict[str, WaitlistQuota] = {q.quota: q for q in WAITLIST_QUOTAS}
 
 
+def station_name(code: str) -> str:
+    """Human-readable name for a station code, e.g. 'NGP' -> 'Nagpur
+    Junction'. Falls back to the bare code if somehow not found (never
+    expected against internal data, but a name-less code is still more
+    useful to show than an exception)."""
+    station = STATIONS_BY_CODE.get(code)
+    return station.name if station else code
+
+
 def schedule_for_train(train_number: str) -> list[ScheduleStop]:
     stops = [s for s in SCHEDULE_STOPS if s.train_number == train_number]
     return sorted(stops, key=lambda s: s.sequence)

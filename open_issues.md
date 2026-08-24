@@ -325,4 +325,19 @@ Running the actual proposed demo flow end to end (not a synthetic test) surfaced
 
 152/152 backend tests pass (untouched by the ranking/cap change, since it lives in the agent tool wrapper, not `domain/search.py`, which several tests assert stays exhaustive). Verified live: the same connecting search that produced 9 sprawling cards now produces exactly 3, correctly ranked, each clearly numbered, with a bolded one-line recommendation underneath.
 
+### Every alert and the DecisionBlock named trains and stations by bare number/code, or not at all
+**Files:** `backend/app/dataset.py`, `backend/app/engine/alerts.py`, `backend/app/engine/connection.py`, `frontend/components/AlertMessage.tsx`
+Found dry-running the actual demo script and immediately called out, correctly and bluntly: "only train number isn't enough -- to and from destination and train name is important for entire context -- remember the intent is to help the user not confuse them." Auditing every deterministic alert message confirmed it was systemic, not one bad string:
+
+- D2 ("Confirmed. S8, berth 65.") and D6 ("Running 3h 20m late.") named no train at all.
+- D4 ("Platform 6.") named neither a train nor a station -- the single worst offender.
+- D8 ("12295 is running 3h 20m late.") had the train *number* but not its name.
+- D9 named the destination *station* but not the train.
+- The countdown chip next to the D8 alert had no label at all -- just a bare "43:24" with no indication of what it was counting down to.
+- The DecisionBlock (Flow H) referenced every train by bare number in its line items ("Leg 1 refund (12295)", "Cancel 12539", "Rebook 15665") and the recommendation text used a bare station code ("you still reach BSB today").
+
+All of this had the real data sitting right there unused -- `PNRRecord` already carries `train_name`, and station names just needed a lookup by code (added `dataset.station_name()`, backed by the existing `STATIONS_BY_CODE` dict, since this is now needed in both `alerts.py` and `connection.py`). Fixed every message to name both the train (number + name) and any station involved (by name), and added a "File within:" label ahead of the countdown chip so it's clear what it's counting down to. Verified live against the actual flagship flow end to end -- every alert (D2/D4/D6/D8/D9) and every DecisionBlock line item now names its train in full; the recommendation names the destination station, not a code.
+
+152/152 backend tests unaffected -- the handful that check alert/DecisionBlock content use substring assertions ("Leg 1" in label, fare figure in message), not exact-string matches, so none needed updating for the richer wording.
+
 **Testing-methodology lesson learned twice this project** (Phase 5's streaming false alarm, and the refresh timing above): when an E2E script's *own* screenshot timing races an async operation (a stream still arriving, a rehydration fetch still in flight), the result looks exactly like a real product bug from a screenshot alone. Both times the fix was the same -- wait for an actual, unambiguous completion signal (the `done` SSE event / the Send button re-enabling) instead of "some expected text is now visible," before concluding anything is broken.

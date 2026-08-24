@@ -9,6 +9,7 @@ delay large enough to eat that same buffer."""
 
 from datetime import datetime, timedelta
 
+from app import dataset
 from app.domain import refund as refund_domain
 from app.domain import search as search_domain
 from app.domain import tdr as tdr_domain
@@ -94,8 +95,16 @@ def build_decision_block(
     option_1 = DecisionOption(
         name="Abandon both",
         items=[
-            {"label": f"Leg 1 refund ({leg1.train_number})", "amount": leg1_refund.refund_amount, "note": leg1_eligibility.reason_label},
-            {"label": f"Leg 2 refund ({leg2.train_number})", "amount": leg2_refund.refund_amount, "note": leg2_refund.basis},
+            {
+                "label": f"Leg 1 refund -- {leg1.train_number} {leg1.train_name}",
+                "amount": leg1_refund.refund_amount,
+                "note": leg1_eligibility.reason_label,
+            },
+            {
+                "label": f"Leg 2 refund -- {leg2.train_number} {leg2.train_name}",
+                "amount": leg2_refund.refund_amount,
+                "note": leg2_refund.basis,
+            },
             {"label": "Retiring room refund", "amount": retiring_room_refund, "note": "auto-cancels with the ticket"},
         ],
         deadline_iso=leg1_eligibility.deadline_iso,
@@ -111,8 +120,16 @@ def build_decision_block(
         option_2 = DecisionOption(
             name="Travel late, rebook leg 2",
             items=[
-                {"label": f"Cancel {leg2.train_number}", "amount": -leg2_refund.charge, "note": leg2_refund.basis},
-                {"label": f"Rebook {rebooking_leg.train_number} ({rebooking_leg.departure})", "amount": -rebooking_fare, "note": None},
+                {
+                    "label": f"Cancel {leg2.train_number} {leg2.train_name}",
+                    "amount": -leg2_refund.charge,
+                    "note": leg2_refund.basis,
+                },
+                {
+                    "label": f"Rebook {rebooking_leg.train_number} {rebooking_leg.train_name} ({rebooking_leg.departure})",
+                    "amount": -rebooking_fare,
+                    "note": None,
+                },
             ],
             deadline_iso=None,
             bottom_line_recovered=0,
@@ -120,7 +137,7 @@ def build_decision_block(
         )
         recommendation = (
             f"I'd take Option 2. You lose ₹{extra_cost:,} instead of walking away from the trip "
-            f"entirely, and you still reach {leg2.to_station} today."
+            f"entirely, and you still reach {dataset.station_name(leg2.to_station)} today."
         )
     else:
         option_2 = DecisionOption(

@@ -23,12 +23,15 @@ export default function AlertMessage({ props }: { props: AlertProps }) {
         <span className="mr-1">{SEVERITY_ICON[severity] ?? SEVERITY_ICON.info}</span>
         {props.message}
       </p>
-      <div className="mt-1 flex items-center gap-3">
+      <div className="mt-1 flex items-center gap-2">
         {props.tdr_deadline_iso && (
-          <CountdownChip
-            deadlineIso={props.tdr_deadline_iso}
-            offsetSeconds={props.clock_offset_seconds}
-          />
+          <>
+            <span className="text-ink-dim text-xs">File within:</span>
+            <CountdownChip
+              deadlineIso={props.tdr_deadline_iso}
+              offsetSeconds={props.clock_offset_seconds}
+            />
+          </>
         )}
         {props.action && <span className="text-ink-dim text-xs">{props.action}</span>}
       </div>

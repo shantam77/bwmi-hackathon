@@ -14,7 +14,7 @@ TDR claims respectively -- wired in then. Logged in open_issues.md."""
 import hashlib
 from dataclasses import dataclass, field
 
-from app import store
+from app import dataset, store
 from app.models import JourneyStatus, PNRRecord
 
 SEVERITY_INFO = "info"  # blue
@@ -50,6 +50,15 @@ def _synthetic_seat(pnr_number: str) -> tuple[str, int, int]:
 def _synthetic_platform(train_number: str) -> int:
     digest = hashlib.sha256(train_number.encode()).hexdigest()
     return 1 + int(digest[:2], 16) % 10
+
+
+def _train_ref(pnr: PNRRecord) -> str:
+    """'12295 Sanghamitra Express' -- every alert message names the train
+    this way. A bare number or a bare "Confirmed"/"Platform 6" with no
+    train or station attached is meaningless once there's more than one
+    PNR in play (a connecting journey has two), found by live-testing the
+    actual demo flow, not assumed."""
+    return f"{pnr.train_number} {pnr.train_name}"
 
 
 def evaluate(session_id: str, pnr: PNRRecord, status: JourneyStatus) -> list[Alert]:
@@ -102,9 +111,9 @@ def _d2_d3_chart_prepared(pnr: PNRRecord, status: JourneyStatus) -> Alert | None
             alert_id="D2",
             severity=SEVERITY_INFO,
             message=(
-                f"Confirmed. {coach}, berths {berth_a} and {berth_b}."
+                f"Confirmed on {_train_ref(pnr)} -- {coach}, berths {berth_a} and {berth_b}."
                 if len(pnr.passengers) > 1
-                else f"Confirmed. {coach}, berth {berth_a}."
+                else f"Confirmed on {_train_ref(pnr)} -- {coach}, berth {berth_a}."
             ),
             action="View ticket",
             requires_reasoning=False,
@@ -115,7 +124,7 @@ def _d2_d3_chart_prepared(pnr: PNRRecord, status: JourneyStatus) -> Alert | None
         alert_id="D3",
         severity=SEVERITY_CRITICAL,
         message=(
-            f"Didn't clear. Auto-cancelled, ₹{pnr.total_fare:,} refunding "
+            f"{_train_ref(pnr)} didn't clear. Auto-cancelled, ₹{pnr.total_fare:,} refunding "
             "-- you don't need to file anything."
         ),
         action="Find alternatives",
@@ -131,10 +140,11 @@ def _d4_platform_assigned(pnr: PNRRecord, status: JourneyStatus) -> Alert | None
     if status.effective_status == "WL":
         return None  # no platform for a ticket that hasn't cleared
     platform = _synthetic_platform(pnr.train_number)
+    origin_name = dataset.station_name(pnr.from_station)
     return Alert(
         alert_id="D4",
         severity=SEVERITY_INFO,
-        message=f"Platform {platform}.",
+        message=f"Platform {platform} at {origin_name} for {_train_ref(pnr)}.",
         action=None,
         requires_reasoning=False,
         dedup_key="boarding_day",
@@ -151,7 +161,7 @@ def _d6_delay_crosses_1h(pnr: PNRRecord, status: JourneyStatus) -> Alert | None:
     return Alert(
         alert_id="D6",
         severity=SEVERITY_INFO,
-        message=f"Running {hours}h {minutes}m late.",
+        message=f"{_train_ref(pnr)} is running {hours}h {minutes}m late.",
         action=None,
         requires_reasoning=False,
         dedup_key=f"delay_{status.delay_minutes}",
@@ -169,7 +179,7 @@ def _d8_delay_crosses_3h(pnr: PNRRecord, status: JourneyStatus) -> Alert | None:
     return Alert(
         alert_id="D8",
         severity=SEVERITY_CRITICAL,
-        message=f"{pnr.train_number} is running {hours}h {minutes}m late.",
+        message=f"{_train_ref(pnr)} is running {hours}h {minutes}m late.",
         action="File / decide",
         requires_reasoning=True,
         dedup_key="delay_3h",
@@ -185,10 +195,14 @@ def _d8_delay_crosses_3h(pnr: PNRRecord, status: JourneyStatus) -> Alert | None:
 def _d9_retiring_room_bookable(pnr: PNRRecord, status: JourneyStatus) -> Alert | None:
     if not status.retiring_room_eligible or pnr.status != "WL":
         return None  # only interesting as a change-of-state for a ticket that WAS waitlisted
+    destination_name = dataset.station_name(pnr.to_station)
     return Alert(
         alert_id="D9",
         severity=SEVERITY_INFO,
-        message=f"You're confirmed now, so a retiring room is available at {pnr.to_station}.",
+        message=(
+            f"You're confirmed on {_train_ref(pnr)}, so a retiring room is "
+            f"available at {destination_name}."
+        ),
         action="Check rooms",
         requires_reasoning=False,
         dedup_key="chart_prepared",
