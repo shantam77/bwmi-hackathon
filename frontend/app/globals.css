@@ -1,31 +1,34 @@
 @import "tailwindcss";
 
-/* Departure-board palette. Dark only, by design -- people book trains at
-   night, on platforms, at low screen brightness. There is no light-theme
-   variant to maintain.
-
-   Neutrals lean navy rather than neutral slate -- Indian Railways' own
-   signage and IRCTC's branding both live in deep blue, not GitHub-dark
-   gray. --accent is a saffron/amber, doing double duty as a departure-board
-   LED color and a quiet nod to the tricolor -- used for brand and primary
-   actions ONLY. --signal-go/wait/stop stay reserved for actual journey
-   status (confirmed/waitlisted/critical) and are never reused as a CTA
-   color, so "this button does something" and "this ticket is confirmed"
-   never compete for the same green. */
+/* Light theme, deliberately -- approved after comparing against the dark
+   version directly (see the build's open_issues.md). Warm ivory instead of
+   stark white avoids the glare of full-brightness white at night, which is
+   when the PDD says people actually use this; soft charcoal instead of
+   pure black already clears WCAG AA against that background without the
+   harshness pure black adds. --accent is a muted, trustworthy navy-blue --
+   every independent IRCTC redesign reference converged on blue as the
+   trustworthy color for this domain -- used for brand and primary actions
+   ONLY. --signal-go/wait/stop stay reserved for actual journey status and
+   are muted rather than saturated, so they read clearly without adding
+   visual noise on top of an already information-dense screen; the *-bg
+   variants back the small status pills (OptionCard, alerts). */
 :root {
-  --surface: #090c12;
-  --raised: #131a26;
-  --raised-2: #1b2434;
-  --ink: #edf1f7;
-  --ink-dim: #8996ab;
-  --rail: #253247;
+  --surface: #faf8f4;
+  --raised: #ffffff;
+  --raised-2: #f1ede4;
+  --ink: #2a2723;
+  --ink-dim: #6b6459;
+  --rail: #e3ddd1;
 
-  --accent: #f2a33d;
-  --accent-ink: #1f1608;
+  --accent: #2c5f86;
+  --accent-ink: #ffffff;
 
-  --signal-go: #34c77b;
-  --signal-wait: #d9a13c;
-  --signal-stop: #ef5658;
+  --signal-go: #3f7d52;
+  --signal-go-bg: #e9f2ec;
+  --signal-wait: #b07a2e;
+  --signal-wait-bg: #f5ecdd;
+  --signal-stop: #b0453a;
+  --signal-stop-bg: #f6e6e3;
 }
 
 @theme inline {
@@ -38,8 +41,11 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-signal-go: var(--signal-go);
+  --color-signal-go-bg: var(--signal-go-bg);
   --color-signal-wait: var(--signal-wait);
+  --color-signal-wait-bg: var(--signal-wait-bg);
   --color-signal-stop: var(--signal-stop);
+  --color-signal-stop-bg: var(--signal-stop-bg);
   --font-sans: var(--font-body);
   --font-mono: var(--font-numerals);
 }
