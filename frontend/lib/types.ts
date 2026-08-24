@@ -31,8 +31,13 @@ export interface JourneyOption {
   legs: Leg[];
 }
 
+export interface StationCandidate {
+  code: string;
+  name: string;
+}
+
 export interface OptionCardProps {
-  ambiguous_stations: { query: string; candidates: string[] }[];
+  ambiguous_stations: { query: string; candidates: StationCandidate[] }[];
   options: JourneyOption[];
 }
 

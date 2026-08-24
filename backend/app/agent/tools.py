@@ -64,8 +64,10 @@ async def search_trains(
     booked separately, since IRCTC has no concept of a connected journey.
     Each leg carries a waitlist prediction. If a query name is ambiguous
     (e.g. "bangalore" matches four stations), `ambiguous_stations` names it
-    and lists every candidate this tool already checked -- tell the user
-    which stations you checked rather than asking them to pick one first.
+    and lists every candidate this tool already checked, each with its own
+    name -- tell the user which stations you checked BY NAME, not by bare
+    code (most people haven't memorized IRCTC's station codes), rather than
+    asking them to pick one first.
     """
     from_resolution = stations.resolve(from_query)
     to_resolution = stations.resolve(to_query)
@@ -75,15 +77,14 @@ async def search_trains(
     if not to_resolution.matches:
         return {"error": f"'{to_query}' isn't a station I recognize."}
 
+    def _candidates(resolution):
+        return [{"code": m.station.code, "name": m.station.name} for m in resolution.matches]
+
     ambiguous_stations = []
     if from_resolution.ambiguous:
-        ambiguous_stations.append(
-            {"query": from_query, "candidates": [m.station.code for m in from_resolution.matches]}
-        )
+        ambiguous_stations.append({"query": from_query, "candidates": _candidates(from_resolution)})
     if to_resolution.ambiguous:
-        ambiguous_stations.append(
-            {"query": to_query, "candidates": [m.station.code for m in to_resolution.matches]}
-        )
+        ambiguous_stations.append({"query": to_query, "candidates": _candidates(to_resolution)})
 
     options = []
     for from_match in from_resolution.matches:

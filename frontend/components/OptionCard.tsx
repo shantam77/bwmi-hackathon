@@ -26,7 +26,12 @@ export default function OptionCard({ ambiguous_stations, options }: OptionCardPr
       {ambiguous_stations.length > 0 && (
         <p className="text-ink-dim text-xs">
           {ambiguous_stations
-            .map((a) => `"${a.query}" checked against ${a.candidates.join(", ")}`)
+            .map(
+              (a) =>
+                `"${a.query}" checked against ${a.candidates
+                  .map((c) => `${c.name} (${c.code})`)
+                  .join(", ")}`,
+            )
             .join(" · ")}
         </p>
       )}
