@@ -109,6 +109,11 @@ export interface ChatMessage {
   role: "user" | "agent";
   content: string;
   component?: MessageComponent | null;
+  // True from the moment this reply starts streaming until the first real
+  // token arrives -- while true, `content` holds a transient status label
+  // ("Thinking…", "Searching trains…") to be rendered as a loading state,
+  // not as the message's actual text.
+  pending?: boolean;
 }
 
 export interface SessionResponse {

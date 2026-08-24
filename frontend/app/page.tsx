@@ -72,7 +72,7 @@ export default function Home() {
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text },
-      { role: "agent", content: "", component: null },
+      { role: "agent", content: "Thinking…", component: null, pending: true },
     ]);
     setInput("");
 
@@ -99,7 +99,7 @@ export default function Home() {
             const next = [...prev];
             const last = next[next.length - 1];
             const content = isFirstToken ? event.content : last.content + event.content;
-            next[next.length - 1] = { ...last, content };
+            next[next.length - 1] = { ...last, content, pending: false };
             return next;
           });
         } else if (event.type === "tool_call") {
@@ -107,7 +107,11 @@ export default function Home() {
             setMessages((prev) => {
               const next = [...prev];
               const last = next[next.length - 1];
-              next[next.length - 1] = { ...last, content: TOOL_LABELS[event.name] ?? "Working…" };
+              next[next.length - 1] = {
+                ...last,
+                content: TOOL_LABELS[event.name] ?? "Working…",
+                pending: true,
+              };
               return next;
             });
           }

@@ -11,6 +11,7 @@ import DecisionBlock from "./DecisionBlock";
 import OptionCard from "./OptionCard";
 import PaymentSheet from "./PaymentSheet";
 import PNRConfirmation from "./PNRConfirmation";
+import TypingIndicator from "./TypingIndicator";
 
 export default function AgentMessage({
   message,
@@ -46,18 +47,23 @@ export default function AgentMessage({
     );
   }
 
+  // Component (the concrete, scannable result -- an option card, a payment
+  // sheet, a PNR) renders BEFORE the narrative text below it. The text
+  // streams in token by token and can run long, so putting it first pushed
+  // the actual result further down with every new sentence -- the one
+  // thing worth seeing kept sliding out of view while a wall of prose grew
+  // above it. Text now reads as commentary under a result that's already
+  // visible and holds its position.
   return (
     <div className="bg-raised max-w-[85%] self-start rounded px-3 py-2">
-      <p className="text-ink whitespace-pre-wrap text-sm">{message.content}</p>
-
       {component?.component === "OptionCard" && (
-        <div className="mt-2">
+        <div className="mb-2">
           <OptionCard {...(component.props as unknown as OptionCardProps)} />
         </div>
       )}
 
       {component?.component === "PaymentSheet" && (
-        <div className="mt-2">
+        <div className="mb-2">
           <PaymentSheet
             props={component.props as unknown as PaymentSheetProps}
             onConfirm={() => onSendMessage("Confirm payment")}
@@ -67,9 +73,15 @@ export default function AgentMessage({
       )}
 
       {component?.component === "PNRConfirmation" && (
-        <div className="mt-2">
+        <div className="mb-2">
           <PNRConfirmation {...(component.props as unknown as PNRConfirmationProps)} />
         </div>
+      )}
+
+      {message.pending ? (
+        <TypingIndicator label={message.content} />
+      ) : (
+        <p className="text-ink whitespace-pre-wrap text-sm">{message.content}</p>
       )}
     </div>
   );
