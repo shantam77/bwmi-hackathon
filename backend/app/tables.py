@@ -58,9 +58,15 @@ class PNR(Base):
     to_station: Mapped[str]
     date: Mapped[str]
     departure: Mapped[str]
+    arrival: Mapped[str]
+    arrival_day_offset: Mapped[int] = mapped_column(default=0)
     travel_class: Mapped[str]
     status: Mapped[str]
     fare_total: Mapped[int]
+    # Set when this booking is one leg of a two-leg connecting journey --
+    # points at the OTHER leg's pnr_number. Our own bookkeeping; IRCTC has
+    # no concept of a connected journey (Flow H).
+    linked_pnr: Mapped[str | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow)
 
 
@@ -81,12 +87,14 @@ class TDRClaim(Base):
 
     id: Mapped[str] = mapped_column(primary_key=True, default=_uuid)
     session_id: Mapped[str] = mapped_column(index=True)
-    pnr_id: Mapped[str] = mapped_column(ForeignKey("pnrs.id"))
+    # Plain string, not a FK -- same pattern as FiredAlert.pnr_number.
+    pnr_number: Mapped[str]
     reason_code: Mapped[str]
-    status: Mapped[str] = mapped_column(default="filed")
+    reason_label: Mapped[str]
+    status: Mapped[str] = mapped_column(default="accepted")
     filed_at: Mapped[datetime] = mapped_column(default=_utcnow)
-    expected_refund_date: Mapped[datetime | None]
-    refund_amount: Mapped[int | None]
+    expected_refund_date: Mapped[datetime]
+    refund_amount: Mapped[int]
 
 
 class FiredAlert(Base):

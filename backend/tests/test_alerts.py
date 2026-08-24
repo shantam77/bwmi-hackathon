@@ -11,6 +11,8 @@ CLEARS_TRAIN = dict(
     from_station="SBC",
     to_station="NGP",
     departure="20:00",
+    arrival="06:15",
+    arrival_day_offset=1,
     travel_class="SL",
 )
 DOES_NOT_CLEAR_TRAIN = dict(
@@ -19,6 +21,8 @@ DOES_NOT_CLEAR_TRAIN = dict(
     from_station="YPR",
     to_station="NGP",
     departure="09:30",
+    arrival="19:20",
+    arrival_day_offset=0,
     travel_class="SL",
 )
 
@@ -34,6 +38,8 @@ def _book(session_id, train, status, date="2026-09-04"):
         to_station=train["to_station"],
         date=date,
         departure=train["departure"],
+        arrival=train["arrival"],
+        arrival_day_offset=train["arrival_day_offset"],
         travel_class=train["travel_class"],
         status=status,
         fare_total=1240,
@@ -87,7 +93,7 @@ def test_delay_below_1h_does_not_fire_d6(fake_session_id):
 
     from app.engine import clock
 
-    departure = state._scheduled_departure(pnr)
+    departure = state.scheduled_departure(pnr)
     clock.jump_to(fake_session_id, departure + timedelta(minutes=45))
     status = state.compute_status(fake_session_id, pnr)
     fired = alerts.evaluate(fake_session_id, pnr, status)

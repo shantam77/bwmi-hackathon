@@ -2,11 +2,14 @@
 scoped by ctx.context.session_id -- no tool may read or write another
 session's data. No business logic lives here; it's all in app/domain."""
 
+from datetime import datetime, timedelta, timezone
+
 from agents import RunContextWrapper, function_tool
 
 from app import store
 from app.agent.context import AgentContext
-from app.domain import booking, search, stations, waitlist
+from app.domain import booking, refund, search, stations, tdr, waitlist
+from app.engine import clock, state
 from app.models import BookingConfirmation, JourneyPlan, Leg, PassengerInput
 
 
@@ -154,11 +157,18 @@ async def confirm_booking(
     date: str,
     travel_class: str,
     passengers: list[PassengerInput],
+    linked_pnr: str | None = None,
 ) -> dict:
     """Finalize a booking after the user has explicitly confirmed the mock
     payment for a quote_booking result with the same arguments. Creates the
     PNR and returns the confirmation. Never call this on the strength of a
     quote alone -- only after the user has confirmed payment.
+
+    Pass linked_pnr = the OTHER leg's PNR number when this booking is the
+    second leg of a connecting journey you already showed the user together
+    (e.g. via search_trains' connecting options) -- this is what lets the
+    app later reason across both tickets if the connection breaks (Flow H).
+    Leave it out for a standalone single-leg booking.
     """
     leg = _find_leg(train_number, from_station, to_station, date, travel_class)
     if leg is None:
@@ -168,6 +178,21 @@ async def confirm_booking(
                 f"from {from_station} to {to_station} on {date}."
             )
         }
+
+    linked_record = None
+    if linked_pnr:
+        linked_record = store.get_pnr(ctx.context.session_id, linked_pnr)
+        if linked_record is None:
+            return {"error": f"No booking found for PNR {linked_pnr} to link this to."}
+        # Derive this leg's calendar date from the linked leg's own arrival
+        # rather than trust the date argument -- a connecting leg's date is
+        # a fact about the first leg's schedule (when it actually gets you
+        # to the interchange), not something to compute from scratch. An
+        # agent getting this arithmetic wrong (e.g. reusing leg 1's date)
+        # would otherwise silently corrupt every downstream calendar
+        # calculation for this PNR, found via live testing.
+        date = state.scheduled_arrival(linked_record).date().isoformat()
+
     result = booking.quote(
         train_number=leg.train_number,
         train_name=leg.train_name,
@@ -180,6 +205,7 @@ async def confirm_booking(
         fare_per_passenger=leg.fare_per_passenger,
         passengers=passengers,
     )
+
     pnr_number = booking.generate_pnr()
     store.create_pnr(
         session_id=ctx.context.session_id,
@@ -190,10 +216,13 @@ async def confirm_booking(
         to_station=leg.to_station,
         date=date,
         departure=leg.departure,
+        arrival=leg.arrival,
+        arrival_day_offset=leg.arrival_day_offset,
         travel_class=leg.travel_class,
         status=leg.status,
         fare_total=result.total_fare,
         passengers=result.passengers,
+        linked_pnr=linked_pnr,
     )
     confirmation = BookingConfirmation(
         pnr=pnr_number,
@@ -218,4 +247,81 @@ async def get_pnr_status(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict
     return record.model_dump()
 
 
-ALL_TOOLS = [search_trains, quote_booking, confirm_booking, get_pnr_status]
+@function_tool
+async def check_tdr_eligibility(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict:
+    """Check whether a booked PNR is currently eligible to file a TDR
+    (refund claim), and if so, the reason code, deadline and refund basis.
+    Also reports the auto-refund cases where filing is unnecessary."""
+    record = store.get_pnr(ctx.context.session_id, pnr)
+    if record is None:
+        return {"error": f"No booking found for PNR {pnr}."}
+
+    session_id = ctx.context.session_id
+    status = state.compute_status(session_id, record)
+
+    if status.is_cancelled:
+        eligibility = tdr.check_cancellation_eligibility()
+    elif status.tdr_auto_refund:
+        eligibility = tdr.check_waitlist_not_cleared_eligibility()
+    else:
+        eligibility = tdr.check_delay_eligibility(
+            timedelta(minutes=status.delay_minutes),
+            state.scheduled_departure(record),
+        )
+    return {"pnr": pnr, "delay_minutes": status.delay_minutes, **eligibility.model_dump()}
+
+
+@function_tool
+async def file_tdr(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict:
+    """File a TDR for a booked PNR. Only call this after check_tdr_eligibility
+    confirms eligible=True and the user has explicitly asked to file -- never
+    on a cancelled or auto-refund PNR (there's nothing to file)."""
+    record = store.get_pnr(ctx.context.session_id, pnr)
+    if record is None:
+        return {"error": f"No booking found for PNR {pnr}."}
+
+    session_id = ctx.context.session_id
+    status = state.compute_status(session_id, record)
+    if status.is_cancelled or status.tdr_auto_refund:
+        return {
+            "error": (
+                "This PNR auto-refunds -- there's nothing to file. "
+                "Call check_tdr_eligibility for the details."
+            )
+        }
+
+    eligibility = tdr.check_delay_eligibility(
+        timedelta(minutes=status.delay_minutes), state.scheduled_departure(record)
+    )
+    if not eligibility.eligible:
+        return {"error": "Not TDR-eligible yet -- delay hasn't crossed 3 hours."}
+
+    breakdown = refund.tdr_refund(record.total_fare, eligibility.refund_basis)
+    claim = store.file_tdr_claim(
+        session_id=session_id,
+        pnr=pnr,
+        reason_code=eligibility.reason_code,
+        reason_label=eligibility.reason_label,
+        refund_amount=breakdown.refund_amount,
+    )
+    return claim.model_dump()
+
+
+@function_tool
+async def get_refund_status(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict:
+    """Look up the status of a previously filed TDR claim for a PNR."""
+    claim = store.get_tdr_claim(ctx.context.session_id, pnr)
+    if claim is None:
+        return {"error": f"No TDR claim on file for PNR {pnr}."}
+    return claim.model_dump()
+
+
+ALL_TOOLS = [
+    search_trains,
+    quote_booking,
+    confirm_booking,
+    get_pnr_status,
+    check_tdr_eligibility,
+    file_tdr,
+    get_refund_status,
+]

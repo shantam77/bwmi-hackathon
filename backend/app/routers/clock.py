@@ -1,6 +1,8 @@
 """POST /api/clock -- Demo Controls. Advances THIS session's clock only,
 recomputes journey status, evaluates alerts, and streams newly fired alerts
-via the same frozen SSE contract as /api/chat (alert/done)."""
+via the same frozen SSE contract as /api/chat (alert/component/done). If the
+delayed PNR has a linked leg and the connection is now broken, also emits
+Flow H's DecisionBlock as a `component` event."""
 
 from collections.abc import AsyncIterator
 
@@ -10,9 +12,11 @@ from pydantic import BaseModel
 
 from app import store
 from app.agent.runner import sse
-from app.engine import alerts, state
+from app.engine import alerts, connection, state
 
 router = APIRouter()
+
+FLOW_H_ALERT_ID = "FLOW_H"
 
 
 class ClockRequest(BaseModel):
@@ -20,7 +24,7 @@ class ClockRequest(BaseModel):
 
 
 async def _clock_stream(session_id: str, demo_state: str) -> AsyncIterator[str]:
-    pnr = store.latest_pnr(session_id)
+    pnr = store.primary_pnr(session_id)
     if pnr is None:
         yield sse("done")
         return
@@ -51,6 +55,23 @@ async def _clock_stream(session_id: str, demo_state: str) -> AsyncIterator[str]:
             component={"component": "AlertMessage", "props": props},
         )
         yield sse("alert", severity=alert.severity, props=props)
+
+    linked = store.linked_pnr_record(session_id, pnr)
+    if linked is not None and connection.connection_is_broken(pnr, status, linked):
+        if not store.has_fired(session_id, pnr.pnr, FLOW_H_ALERT_ID, demo_state or "none"):
+            block = connection.build_decision_block(pnr, status, linked)
+            props = block.model_dump()
+            props["clock_offset_seconds"] = offset_seconds
+            store.record_fired(
+                session_id, pnr.pnr, FLOW_H_ALERT_ID, "critical", demo_state or "none", props
+            )
+            store.append_message(
+                session_id,
+                "agent",
+                "Your connection is broken. I've worked through it.",
+                component={"component": "DecisionBlock", "props": props},
+            )
+            yield sse("component", component="DecisionBlock", props=props)
 
     yield sse("done")
 

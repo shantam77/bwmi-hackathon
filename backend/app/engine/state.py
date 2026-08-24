@@ -17,11 +17,11 @@ from datetime import datetime, timedelta, timezone
 
 from app import store
 from app.domain import search as search_domain
+from app.domain import tdr as tdr_domain
 from app.domain import waitlist as waitlist_domain
 from app.engine import clock
 from app.models import JourneyStatus, Leg, PNRRecord
 
-TDR_DELAY_THRESHOLD_MINUTES = 180  # 3 hours -- docs/01-research-context-log.md section 5
 CHART_PREPARATION_HOURS_BEFORE = 4
 BOARDING_DAY_HOURS_BEFORE = 1
 DELAY_1H_MINUTES = 65  # matches PDD's "Running 1h 5m late"
@@ -34,10 +34,20 @@ DEMO_STATES = ["chart_prepared", "boarding_day", "delay_1h", "delay_3h", "cancel
 DELAY_DEMO_STATE_MINUTES = {"delay_1h": DELAY_1H_MINUTES, "delay_3h": DELAY_3H_MINUTES}
 
 
-def _scheduled_departure(pnr: PNRRecord) -> datetime:
-    hour, minute = map(int, pnr.departure.split(":"))
-    year, month, day = map(int, pnr.date.split("-"))
-    return datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+def combine_datetime(date_str: str, time_str: str, day_offset: int = 0) -> datetime:
+    """date_str is YYYY-MM-DD, time_str is HH:MM, day_offset shifts forward
+    by whole days (e.g. an overnight arrival the day after departure)."""
+    hour, minute = map(int, time_str.split(":"))
+    year, month, day = map(int, date_str.split("-"))
+    return datetime(year, month, day, hour, minute, tzinfo=timezone.utc) + timedelta(days=day_offset)
+
+
+def scheduled_departure(pnr: PNRRecord) -> datetime:
+    return combine_datetime(pnr.date, pnr.departure)
+
+
+def scheduled_arrival(pnr: PNRRecord) -> datetime:
+    return combine_datetime(pnr.date, pnr.arrival, pnr.arrival_day_offset)
 
 
 def _find_current_leg(pnr: PNRRecord) -> Leg | None:
@@ -56,7 +66,7 @@ def apply_demo_state(session_id: str, pnr: PNRRecord, demo_state: str | None) ->
     if demo_state not in DEMO_STATES:
         raise ValueError(f"Unknown demo state: {demo_state}")
 
-    departure = _scheduled_departure(pnr)
+    departure = scheduled_departure(pnr)
 
     if demo_state == "chart_prepared":
         target = departure - timedelta(hours=CHART_PREPARATION_HOURS_BEFORE)
@@ -77,7 +87,7 @@ def apply_demo_state(session_id: str, pnr: PNRRecord, demo_state: str | None) ->
 def compute_status(session_id: str, pnr: PNRRecord) -> JourneyStatus:
     now = clock.now(session_id)
     demo_state = store.get_demo_state(session_id)
-    departure = _scheduled_departure(pnr)
+    departure = scheduled_departure(pnr)
 
     is_cancelled = demo_state == "cancelled"
     chart_prepared = now >= departure - timedelta(hours=CHART_PREPARATION_HOURS_BEFORE)
@@ -119,14 +129,17 @@ def compute_status(session_id: str, pnr: PNRRecord) -> JourneyStatus:
     chart_did_not_clear = (not is_cancelled) and pnr.status == "WL" and chart_prepared and cleared is False
     tdr_auto_refund = is_cancelled or chart_did_not_clear
 
-    tdr_eligible = (not tdr_auto_refund) and (
-        is_cancelled or delay_minutes >= TDR_DELAY_THRESHOLD_MINUTES
-    )
-
+    # Delegates the actual threshold/deadline math to domain/tdr.py rather
+    # than re-encoding "3 hours" here -- one source of truth for the rule,
+    # tested at second-precision boundaries in tests/test_tdr.py.
+    tdr_eligible = False
     tdr_deadline_iso = None
-    if tdr_eligible:
-        actual_departure = departure + timedelta(minutes=delay_minutes)
-        tdr_deadline_iso = actual_departure.isoformat()
+    if not tdr_auto_refund and not is_cancelled:
+        delay_eligibility = tdr_domain.check_delay_eligibility(
+            timedelta(minutes=delay_minutes), departure
+        )
+        tdr_eligible = delay_eligibility.eligible
+        tdr_deadline_iso = delay_eligibility.deadline_iso
 
     retiring_room_eligible = (not is_cancelled) and effective_status in ("CNF", "RAC")
 

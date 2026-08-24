@@ -158,10 +158,20 @@ class PNRRecord(BaseModel):
     to_station: str
     date: str
     departure: str
+    arrival: str
+    # Relative to `date` -- 0 = arrives same day, 1 = arrives the next day.
+    # Needed to know which CALENDAR day an overnight train's arrival is on
+    # (e.g. 12295 departs 20:00, arrives 06:15 the next day).
+    arrival_day_offset: int
     travel_class: str
     status: str
     total_fare: int
     passengers: list[PassengerInput]
+    # Set when this booking is one leg of a two-leg connecting journey --
+    # points at the OTHER leg's PNR number. IRCTC has no concept of a
+    # connected journey; this is our own bookkeeping so the app can reason
+    # across two otherwise-unrelated tickets (Flow H).
+    linked_pnr: str | None = None
 
 
 class JourneyStatus(BaseModel):
@@ -183,3 +193,54 @@ class JourneyStatus(BaseModel):
     tdr_deadline_iso: str | None
     tdr_auto_refund: bool  # cancelled or never-cleared WL -- no filing needed
     retiring_room_eligible: bool
+
+
+class TDREligibility(BaseModel):
+    """Result of checking one TDR scenario against docs/01 section 5's
+    reason-code table. eligible=False + auto_refund=True means "don't file,
+    it refunds automatically" -- half the value of the feature per the PDD."""
+
+    eligible: bool
+    auto_refund: bool
+    reason_code: str | None
+    reason_label: str | None
+    deadline_iso: str | None
+    refund_basis: str | None
+    needs_certificate: bool
+
+
+class RefundBreakdown(BaseModel):
+    fare_total: int
+    charge: int
+    refund_amount: int
+    basis: str  # human-readable description of how the charge was computed
+
+
+class TDRClaimRecord(BaseModel):
+    tdr_id: str
+    pnr: str
+    reason_code: str
+    reason_label: str
+    status: str  # "filed" | "accepted"
+    filed_at_iso: str
+    expected_refund_date_iso: str
+    refund_amount: int
+
+
+class DecisionOption(BaseModel):
+    """One named option in Flow H's DecisionBlock -- itemized amounts, its
+    own deadline, a bottom-line total. Every figure here traces to a domain
+    function; nothing is model-generated."""
+
+    name: str
+    items: list[dict]  # [{"label": str, "amount": int, "note": str | None}]
+    deadline_iso: str | None
+    bottom_line_recovered: int
+    bottom_line_total_paid: int
+
+
+class DecisionBlockData(BaseModel):
+    option_1: DecisionOption
+    option_2: DecisionOption
+    recommendation: str
+    leg2_rule_explanation: str

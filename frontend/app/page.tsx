@@ -113,6 +113,19 @@ export default function Home() {
               component: { component: "AlertMessage", props: event.props },
             },
           ]);
+        } else if (event.type === "component") {
+          // Flow H's DecisionBlock arrives this way -- distinct from
+          // "alert" since it's a rich component, not a severity-marker
+          // message. Missing this branch means the backend can correctly
+          // compute and stream it and the frontend still silently drops it.
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "agent",
+              content: "Your connection is broken. I've worked through it.",
+              component: { component: event.component, props: event.props },
+            },
+          ]);
         } else if (event.type === "done") {
           break;
         }
@@ -128,8 +141,14 @@ export default function Home() {
         <h1 className="text-ink text-sm font-semibold">Saarthi</h1>
       </header>
 
-      {loaded && <Thread messages={messages} onSendMessage={sendMessage} disabled={sending} />}
-      <div ref={bottomRef} />
+      {loaded && (
+        <Thread
+          ref={bottomRef}
+          messages={messages}
+          onSendMessage={sendMessage}
+          disabled={sending}
+        />
+      )}
 
       <DemoControls onSelect={sendClockAction} disabled={sending} />
 

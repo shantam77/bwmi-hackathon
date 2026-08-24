@@ -25,6 +25,8 @@ CLEARS_TRAIN = dict(
     from_station="SBC",
     to_station="NGP",
     departure="20:00",
+    arrival="06:15",
+    arrival_day_offset=1,
     travel_class="SL",
 )
 # 22823 SL GNWL/45 -> 0% -> does not clear.
@@ -34,6 +36,8 @@ DOES_NOT_CLEAR_TRAIN = dict(
     from_station="YPR",
     to_station="NGP",
     departure="09:30",
+    arrival="19:20",
+    arrival_day_offset=0,
     travel_class="SL",
 )
 
@@ -49,6 +53,8 @@ def _book(session_id, train, status, date="2026-09-04"):
         to_station=train["to_station"],
         date=date,
         departure=train["departure"],
+        arrival=train["arrival"],
+        arrival_day_offset=train["arrival_day_offset"],
         travel_class=train["travel_class"],
         status=status,
         fare_total=1000,
@@ -61,7 +67,7 @@ def test_chart_prepared_sets_clock_four_hours_before_departure(fake_session_id):
     pnr = _book(fake_session_id, CLEARS_TRAIN, "WL")
     state.apply_demo_state(fake_session_id, pnr, "chart_prepared")
     status = state.compute_status(fake_session_id, pnr)
-    departure = state._scheduled_departure(pnr)
+    departure = state.scheduled_departure(pnr)
     expected = departure - timedelta(hours=4)
     _assert_close(status.now_iso, expected)
     assert status.chart_prepared is True
@@ -71,7 +77,7 @@ def test_boarding_day_sets_clock_one_hour_before_departure(fake_session_id):
     pnr = _book(fake_session_id, CLEARS_TRAIN, "WL")
     state.apply_demo_state(fake_session_id, pnr, "boarding_day")
     status = state.compute_status(fake_session_id, pnr)
-    departure = state._scheduled_departure(pnr)
+    departure = state.scheduled_departure(pnr)
     _assert_close(status.now_iso, departure - timedelta(hours=1))
 
 
@@ -86,7 +92,7 @@ def test_delay_3h_matches_pdd_flagship_figures_exactly(fake_session_id):
     pnr = _book(fake_session_id, CLEARS_TRAIN, "WL")
     state.apply_demo_state(fake_session_id, pnr, "delay_3h")
     status = state.compute_status(fake_session_id, pnr)
-    departure = state._scheduled_departure(pnr)
+    departure = state.scheduled_departure(pnr)
     actual_departure = departure + timedelta(minutes=200)
 
     assert status.delay_minutes == 200  # "running 3h 20m late"
@@ -105,7 +111,7 @@ def test_delay_3h_matches_pdd_flagship_figures_exactly(fake_session_id):
 def test_delay_at_2h59m_is_not_tdr_eligible(fake_session_id):
     # Explicit boundary edge case from the Phase 3 test gate.
     pnr = _book(fake_session_id, CLEARS_TRAIN, "AVAILABLE")
-    departure = state._scheduled_departure(pnr)
+    departure = state.scheduled_departure(pnr)
     clock.jump_to(fake_session_id, departure + timedelta(minutes=179))
     status = state.compute_status(fake_session_id, pnr)
     assert status.delay_minutes == 179
@@ -114,7 +120,7 @@ def test_delay_at_2h59m_is_not_tdr_eligible(fake_session_id):
 
 def test_delay_at_exactly_3h_is_tdr_eligible(fake_session_id):
     pnr = _book(fake_session_id, CLEARS_TRAIN, "AVAILABLE")
-    departure = state._scheduled_departure(pnr)
+    departure = state.scheduled_departure(pnr)
     clock.jump_to(fake_session_id, departure + timedelta(minutes=180))
     status = state.compute_status(fake_session_id, pnr)
     assert status.delay_minutes == 180

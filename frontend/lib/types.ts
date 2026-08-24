@@ -78,6 +78,28 @@ export interface AlertProps {
   [key: string]: unknown;
 }
 
+export interface DecisionItem {
+  label: string;
+  amount: number;
+  note?: string | null;
+}
+
+export interface DecisionOption {
+  name: string;
+  items: DecisionItem[];
+  deadline_iso?: string | null;
+  bottom_line_recovered: number;
+  bottom_line_total_paid: number;
+}
+
+export interface DecisionBlockProps {
+  option_1: DecisionOption;
+  option_2: DecisionOption;
+  recommendation: string;
+  leg2_rule_explanation: string;
+  clock_offset_seconds?: number;
+}
+
 export interface MessageComponent {
   component: string;
   props: Record<string, unknown>;

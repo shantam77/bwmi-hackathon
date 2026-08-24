@@ -1,11 +1,13 @@
 import type {
   AlertProps,
   ChatMessage,
+  DecisionBlockProps,
   OptionCardProps,
   PaymentSheetProps,
   PNRConfirmationProps,
 } from "@/lib/types";
 import AlertMessage from "./AlertMessage";
+import DecisionBlock from "./DecisionBlock";
 import OptionCard from "./OptionCard";
 import PaymentSheet from "./PaymentSheet";
 import PNRConfirmation from "./PNRConfirmation";
@@ -27,6 +29,19 @@ export default function AgentMessage({
     return (
       <div className="w-full max-w-[85%] self-start">
         <AlertMessage props={component.props as unknown as AlertProps} />
+      </div>
+    );
+  }
+
+  // DecisionBlock is Flow H's flagship moment -- full width, not confined
+  // to the usual chat-bubble width, so both option panels have room.
+  if (component?.component === "DecisionBlock") {
+    return (
+      <div className="w-full max-w-full self-start">
+        <DecisionBlock
+          {...(component.props as unknown as DecisionBlockProps)}
+          onSendMessage={onSendMessage}
+        />
       </div>
     );
   }

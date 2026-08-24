@@ -3,9 +3,22 @@ app/tables.py directly -- domain/engine/agent code goes through here and
 only ever sees plain Pydantic models, never ORM rows. Every function takes
 session_id and filters on it; there is no cross-session read in this file."""
 
+from datetime import datetime, timedelta, timezone
+
 from app.db import get_session_factory
-from app.models import JourneyPlan, PassengerInput, PNRRecord
-from app.tables import AgentSessionItem, ClockOffset, FiredAlert, Journey, Message, Passenger, PNR
+from app.models import JourneyPlan, PassengerInput, PNRRecord, TDRClaimRecord
+from app.tables import (
+    AgentSessionItem,
+    ClockOffset,
+    FiredAlert,
+    Journey,
+    Message,
+    Passenger,
+    PNR,
+    TDRClaim,
+)
+
+TDR_REFUND_DAYS = 45  # docs/01-research-context-log.md section 5
 
 # --- Clock offset ------------------------------------------------------------
 
@@ -176,10 +189,13 @@ def create_pnr(
     to_station: str,
     date: str,
     departure: str,
+    arrival: str,
+    arrival_day_offset: int,
     travel_class: str,
     status: str,
     fare_total: int,
     passengers: list[PassengerInput],
+    linked_pnr: str | None = None,
 ) -> None:
     Session = get_session_factory()
     with Session() as db:
@@ -193,9 +209,12 @@ def create_pnr(
             to_station=to_station,
             date=date,
             departure=departure,
+            arrival=arrival,
+            arrival_day_offset=arrival_day_offset,
             travel_class=travel_class,
             status=status,
             fare_total=fare_total,
+            linked_pnr=linked_pnr,
         )
         db.add(pnr_row)
         db.flush()
@@ -212,6 +231,14 @@ def create_pnr(
             )
         db.commit()
 
+        if linked_pnr:
+            other = db.query(PNR).filter(
+                PNR.session_id == session_id, PNR.pnr_number == linked_pnr
+            ).first()
+            if other is not None:
+                other.linked_pnr = pnr_number
+                db.commit()
+
 
 def _pnr_row_to_record(db, pnr_row) -> PNRRecord:
     passenger_rows = db.query(Passenger).filter(Passenger.pnr_id == pnr_row.id).all()
@@ -223,6 +250,8 @@ def _pnr_row_to_record(db, pnr_row) -> PNRRecord:
         to_station=pnr_row.to_station,
         date=pnr_row.date,
         departure=pnr_row.departure,
+        arrival=pnr_row.arrival,
+        arrival_day_offset=pnr_row.arrival_day_offset,
         travel_class=pnr_row.travel_class,
         status=pnr_row.status,
         total_fare=pnr_row.fare_total,
@@ -230,6 +259,7 @@ def _pnr_row_to_record(db, pnr_row) -> PNRRecord:
             PassengerInput(name=p.name, age=p.age, berth_preference=p.berth_preference)
             for p in passenger_rows
         ],
+        linked_pnr=pnr_row.linked_pnr,
     )
 
 
@@ -254,6 +284,38 @@ def latest_pnr(session_id: str) -> PNRRecord | None:
             .first()
         )
         return _pnr_row_to_record(db, pnr_row) if pnr_row else None
+
+
+def primary_pnr(session_id: str) -> PNRRecord | None:
+    """The PNR Demo Controls should act on: the FIRST-booked PNR in the
+    session, not the most recently booked one. For a two-leg connecting
+    journey, leg 2 is booked after leg 1 (booking leg 2 requires already
+    knowing leg 1's PNR to link it) but leg 1 is the train that's actually
+    running late -- using latest_pnr() here would silently apply the delay
+    to the wrong leg.
+
+    Deliberately sorts by created_at, NOT by (date, departure): the date
+    string on a booking is whatever the agent supplied, and a connecting
+    leg 2 booked with an incorrectly-computed date (e.g. reusing leg 1's
+    date instead of the correct next day) would otherwise look like it
+    departs earlier than leg 1 and get picked as "primary" by mistake --
+    this happened in testing. created_at is a fact this system controls
+    itself, not something an upstream caller can get wrong."""
+    Session = get_session_factory()
+    with Session() as db:
+        pnr_row = (
+            db.query(PNR)
+            .filter(PNR.session_id == session_id)
+            .order_by(PNR.created_at.asc())
+            .first()
+        )
+        return _pnr_row_to_record(db, pnr_row) if pnr_row else None
+
+
+def linked_pnr_record(session_id: str, pnr: PNRRecord) -> PNRRecord | None:
+    if not pnr.linked_pnr:
+        return None
+    return get_pnr(session_id, pnr.linked_pnr)
 
 
 # --- Agent SDK conversation history (separate from Message -- see AgentSessionItem) --
@@ -312,3 +374,60 @@ def clear_agent_session(session_id: str) -> None:
     with Session() as db:
         db.query(AgentSessionItem).filter(AgentSessionItem.session_id == session_id).delete()
         db.commit()
+
+
+# --- TDR claims ------------------------------------------------------------
+
+
+def file_tdr_claim(
+    session_id: str, pnr: str, reason_code: str, reason_label: str, refund_amount: int
+) -> TDRClaimRecord:
+    Session = get_session_factory()
+    with Session() as db:
+        filed_at = datetime.now(timezone.utc)
+        expected = filed_at + timedelta(days=TDR_REFUND_DAYS)
+        row = TDRClaim(
+            session_id=session_id,
+            pnr_number=pnr,
+            reason_code=reason_code,
+            reason_label=reason_label,
+            status="accepted",
+            filed_at=filed_at,
+            expected_refund_date=expected,
+            refund_amount=refund_amount,
+        )
+        db.add(row)
+        db.commit()
+        return TDRClaimRecord(
+            tdr_id=row.id,
+            pnr=pnr,
+            reason_code=reason_code,
+            reason_label=reason_label,
+            status=row.status,
+            filed_at_iso=row.filed_at.isoformat(),
+            expected_refund_date_iso=row.expected_refund_date.isoformat(),
+            refund_amount=refund_amount,
+        )
+
+
+def get_tdr_claim(session_id: str, pnr: str) -> TDRClaimRecord | None:
+    Session = get_session_factory()
+    with Session() as db:
+        row = (
+            db.query(TDRClaim)
+            .filter(TDRClaim.session_id == session_id, TDRClaim.pnr_number == pnr)
+            .order_by(TDRClaim.filed_at.desc())
+            .first()
+        )
+        if row is None:
+            return None
+        return TDRClaimRecord(
+            tdr_id=row.id,
+            pnr=row.pnr_number,
+            reason_code=row.reason_code,
+            reason_label=row.reason_label,
+            status=row.status,
+            filed_at_iso=row.filed_at.isoformat(),
+            expected_refund_date_iso=row.expected_refund_date.isoformat(),
+            refund_amount=row.refund_amount,
+        )

@@ -91,17 +91,92 @@ doesn't trigger a new delay alert. Low priority; would need a page-level
 "current offset" state threaded through Thread/AgentMessage/AlertMessage
 instead of a per-alert copy to fully close.
 
-### Page didn't reliably scroll to the bottom of the thread on load/refresh
-**File:** `frontend/app/page.tsx`
-Noticed in both Phase 2 and Phase 3 E2E screenshots: a hard refresh restored
-the full thread correctly (content was right), but the view reset to the top
-instead of showing the latest message -- likely `scrollIntoView` computing
-against a not-yet-painted page right after rehydration mounts the whole
-thread at once. Applied a fix (`requestAnimationFrame` + `behavior: "auto"`
-instead of `"smooth"`) but haven't re-run a dedicated E2E check for it yet --
-verify this during Phase 4/5's longer-thread E2E passes rather than trusting
-it blind.
+### ~~Page didn't reliably scroll to the bottom of the thread on load/refresh~~ -- fixed and confirmed
+**Files:** `frontend/app/page.tsx`, `frontend/components/Thread.tsx`
+The real bug, found once actually traced through: `Thread`'s inner div is
+the actual scrollable element (`overflow-y-auto`), but `bottomRef` was
+rendered as a *sibling* of `<Thread>` in `page.tsx` -- outside the
+scrollable container entirely. Calling `scrollIntoView()` on a ref that
+isn't inside the scrolling element doesn't do anything useful, no matter how
+the timing is tuned. The earlier `requestAnimationFrame` change was treating
+a symptom. Fixed by making `Thread` forward the ref down to its own
+scrollable div. Confirmed via the Phase 4 Flow H E2E run: page now lands at
+the bottom of a long thread after a hard refresh, DecisionBlock and all.
 
 ---
 
-*(Phase 4+ entries added below as they come up.)*
+## From Phase 4
+
+### Flow H's exact rupee figures won't match the PDD's illustrative copy, on purpose
+**File:** `backend/app/domain/refund.py`
+The PDD's Flow H example shows "₹1,470 back of ₹1,890" for leg 2's ordinary
+cancellation. I did not reverse-engineer a formula to hit that number --
+that was narrative flavor text in the design doc, never backed by a JSON
+data file the way the flagship waitlist figures were (see the Phase 1
+"proved by testing with data it's never seen" discussion). Instead
+`ordinary_cancellation_refund` implements a generic, documented,
+publicly-sourced tiered cancellation model (48h/12h/4h thresholds), tested
+independently at its own boundaries. For the actual flagship scenario this
+produces a *different* number (~₹945 back of ₹1,890, per the 4-12h tier at
+the demo's timing). This is the more honest choice given the earlier
+conversation about not hardcoding to match specific examples -- but it does
+mean the video/pitch shouldn't quote the PDD's exact "₹1,470" figure; use
+whatever the running app actually shows.
+
+### Most TDR refund_basis values aren't modelled in detail
+**File:** `backend/app/domain/refund.py` (`tdr_refund`)
+Only `full_fare`, `full_fare_auto`, and `full_fare_minus_service_charge` are
+implemented precisely -- the only three reachable by this build's flows
+(LATE_3H, TRAIN_CANCELLED, WAITLIST_NOT_CLEARED). `fare_difference`,
+`partial_fare_ac_charges`, and `proportionate_fare` (for class-downgrade, AC
+failure, and short-termination reason codes -- none of which any flow in
+this build actually triggers) fall back to a full-fare placeholder with a
+labelled note, rather than fabricated partial-refund math. Fine as long as
+those reason codes stay unreachable; would need real modelling if a future
+phase adds AC-failure or downgrade flows.
+
+### Two real Flow H bugs found and fixed by live E2E testing
+**Files:** `frontend/app/page.tsx`, `backend/app/store.py`, `backend/app/agent/tools.py`
+Both only surfaced by actually driving the full booking-through-delay flow in
+a real browser against the real model -- neither was caught by unit tests,
+since each depends on the live agent's behavior or the frontend/backend
+wire contract, not pure domain logic.
+
+1. **Silently dropped DecisionBlock.** `sendClockAction` in `page.tsx` only
+   handled SSE `"alert"` events, not `"component"` -- so Flow H's
+   DecisionBlock (correctly computed and streamed by the backend, confirmed
+   via the `fired_alerts` table) was received and thrown away client-side.
+   No error, no crash -- it just never rendered. Fixed by adding the
+   missing branch.
+
+2. **Wrong leg treated as "primary."** The live agent booked the connecting
+   leg 2 with the *same* date as leg 1 (`2026-09-04` instead of the correct
+   `2026-09-05`) -- a real date-arithmetic mistake, not a bug I injected via
+   a test script. `primary_pnr()`'s original design sorted PNRs by
+   `(date, departure)` string comparison to find "the earlier-departing
+   leg," which then picked leg 2 as primary (its wrong same-day 08:40 looked
+   earlier than leg 1's 20:00). This applied the demo delay to the wrong
+   train and scrambled every downstream figure (train numbers swapped in
+   the DecisionBlock's own labels, refund amounts computed against the
+   wrong PNR's fare).
+
+   Fixed two ways: `primary_pnr()` now sorts by `created_at` (a fact this
+   system controls itself) instead of trusting an externally-supplied date
+   string. And `confirm_booking` now *derives* a connecting leg's date from
+   the linked leg's own arrival date rather than trusting whatever date
+   argument the model passed -- removing the whole class of "the agent got
+   the connecting-leg arithmetic wrong" bugs at the system boundary, not
+   just papering over this one instance.
+
+**Residual limitation:** the date-derivation fix assumes the connecting leg
+departs on the *same calendar day* it arrives at the interchange (true for
+this build's persona data). It doesn't handle a train whose departure
+clock-time is earlier than the linked leg's arrival clock-time (which would
+need one more day added, matching the rollover logic already in
+`domain/search.py`'s connecting-route search) -- not reachable by any
+route in the current seed data, but worth knowing if new connecting routes
+are added later.
+
+---
+
+*(Phase 5+ entries added below as they come up.)*
