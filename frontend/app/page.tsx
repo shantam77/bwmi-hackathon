@@ -8,6 +8,23 @@ import DemoControls from "@/components/DemoControls";
 import HonestyPanel from "@/components/HonestyPanel";
 import Thread from "@/components/Thread";
 
+// Shown in the reply bubble while a tool call is in flight and no text has
+// streamed back yet -- some turns (TDR filing, a fresh search) take a real,
+// noticeable number of seconds, and an empty bubble with no signal reads as
+// broken, not "thinking." Replaced outright by the first real token.
+const TOOL_LABELS: Record<string, string> = {
+  search_trains: "Searching trains…",
+  quote_booking: "Getting a fare quote…",
+  confirm_booking: "Booking your ticket…",
+  get_pnr_status: "Checking PNR status…",
+  check_tdr_eligibility: "Checking refund eligibility…",
+  file_tdr: "Filing your TDR claim…",
+  get_refund_status: "Checking refund status…",
+  get_catering_options: "Checking catering options…",
+  get_retiring_room_availability: "Checking retiring rooms…",
+  book_retiring_room: "Booking your room…",
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -59,6 +76,8 @@ export default function Home() {
     ]);
     setInput("");
 
+    let receivedFirstToken = false;
+
     try {
       const res = await apiFetch("/api/chat", {
         method: "POST",
@@ -68,12 +87,30 @@ export default function Home() {
 
       for await (const event of parseSSE(res)) {
         if (event.type === "token") {
+          // Capture "is this the first token" into a per-iteration const
+          // before the state update, rather than reading the mutable
+          // receivedFirstToken flag from inside the updater closure --
+          // React can defer a functional setState update, by which point
+          // the outer flag may already have been flipped to true by the
+          // next loop iteration, silently turning "replace" into "append".
+          const isFirstToken = !receivedFirstToken;
+          receivedFirstToken = true;
           setMessages((prev) => {
             const next = [...prev];
             const last = next[next.length - 1];
-            next[next.length - 1] = { ...last, content: last.content + event.content };
+            const content = isFirstToken ? event.content : last.content + event.content;
+            next[next.length - 1] = { ...last, content };
             return next;
           });
+        } else if (event.type === "tool_call") {
+          if (!receivedFirstToken) {
+            setMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              next[next.length - 1] = { ...last, content: TOOL_LABELS[event.name] ?? "Working…" };
+              return next;
+            });
+          }
         } else if (event.type === "component") {
           setMessages((prev) => {
             const next = [...prev];
