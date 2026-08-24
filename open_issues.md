@@ -179,4 +179,67 @@ are added later.
 
 ---
 
-*(Phase 5+ entries added below as they come up.)*
+## From Phase 5
+
+### Real bug found by live E2E: fuzzy station matching over-matched on generic words like "Junction"
+**File:** `backend/app/domain/stations.py` (`resolve`)
+Found while investigating what first looked like a much scarier bug (see the false-alarm note below): asking for "Ahmedabad Junction" -- which exactly, uniquely names station ADI -- came back `ambiguous=True` with **18** candidate stations (Guntakal Junction, Jhansi Junction, Mysuru Junction, Nagpur Junction, even bare single-letter codes...). Root cause: the fuzzy fallback stage scores every station's `name`/`city`/`aliases` against the query via `SequenceMatcher.ratio()` and keeps anything scoring `>= 0.6`, with no tier above that for an exact match reached via `name`/`city` rather than `code`/`alias`. Since "Junction" is an 8-character shared suffix across dozens of Indian station names, SequenceMatcher's ratio pushed many unrelated stations over threshold. Same failure mode hit "Chennai Egmore" (exactly names MS) getting bundled with Chennai Central (MAS) because "chennai" -- just the city field -- is a substring of the query, triggering `_similarity`'s 0.85 shortcut.
+
+Fixed by adding a fourth resolution tier, mirroring the "exact wins" principle already used for the code/alias tiers: if any fuzzy candidate scores a perfect 1.0 (the query exactly equals a station's name/city/alias), return only the perfect-score matches, dropping the noisy weaker ones. Verified this does **not** affect the flagship "bangalore" -> {SBC, YPR, KJM, BNC} 4-way ambiguity, since that case is already resolved entirely by the earlier exact-alias tier and never reaches the fuzzy stage at all. Added two regression tests (`test_exact_full_name_match_is_not_diluted_by_noisy_fuzzy_matches`, `test_exact_name_match_wins_even_when_sharing_a_city_with_another_station`) -- the original 9-test suite didn't cover a multi-word query containing a common station-name suffix, which is exactly the gap that let this ship. All 150 backend tests plus these 2 new ones pass after the fix.
+
+### False alarm, recorded for the record: apparent "response truncation" was a test-script timing bug, not a product bug
+While testing the fix above, live E2E via Playwright twice showed the agent's reply visually cut off mid-sentence ("No direct trains found for Chennai Egmore -> Ahmedabad Junction on 2026-"). Chased this seriously since it looked like a real, reproducible streaming bug -- checked backend logs (clean, no exceptions, 200 OK), replayed the exact request via raw `curl` (full, complete response), and replayed it via a raw `fetch()` executed inside the actual browser page context bypassing React entirely (also full and complete). All three came back clean. Root cause: my own test helper (`waitAndDump`) took its screenshot the instant a regex first matched a *substring* of the streaming response, not after the stream actually finished -- for this query the matched phrase happened to be the first sentence, so the screenshot fired while the rest of the message was still arriving. Confirmed by re-running while waiting for the real completion signal (the Send button re-enabling, which only happens after `sendMessage`'s `finally` block runs) -- full, coherent response every time, zero console errors. No product code changed for this one; noted here only so a future reviewer doesn't re-chase the same ghost from a screenshot that looks alarming out of context.
+
+### Real bug found by live E2E: catering/retiring-room tools rejected station names, only accepted exact codes
+**Files:** `backend/app/agent/tools.py` (`get_catering_options`, `get_retiring_room_availability`, `book_retiring_room`)
+`_minutes_until_arrival` and `retiring.room_options` both match `station_code` by exact string equality against the schedule/facility data. `search_trains` already resolves free-text station names/aliases via `domain/stations.resolve()` before touching the domain layer, but these three tools never did -- they passed the model's raw `station` argument straight through. Live-tested by literally asking "What food options do I have at Guntakal" (Guntakal *is* a real stop on the booked train, per `schedules.json`): the tool returned "Guntakal isn't a stop on 12295's route" because the code is `GTL`, not `"Guntakal"`.
+
+Fixed by adding `_resolve_station_code()` (best-effort name/alias -> code via `stations.resolve()`, falling back to the raw query if nothing resolves so an unrecognized station still fails with a clear error rather than silently swallowing it) and routing all three tools' `station` argument through it before use. Re-verified live after the fix: "Guntakal" now correctly resolves to GTL and returns real vendor data. Same root cause as the Phase 4 connecting-leg date bug -- don't trust an arbitrary model-supplied string to already be in the exact shape internal lookups need; resolve it at the system boundary instead.
+
+### WL-gated retiring-room denial verified live, not just by unit test
+**File:** `backend/app/domain/retiring.py`
+While live-testing the fix above, the freshly booked SL ticket on 12295 was GNWL/18 (waitlisted, by the persona's deliberate seed-data calibration) and the retiring-room tool correctly refused it: "not eligible — ticket is WL... retiring rooms need a confirmed or RAC ticket." Re-ran the same flow booking 3A instead (AVAILABLE/CNF per `availability.json`) and got a real eligible=true response with both NGP room options and their real tariffs (₹520 / ₹1,150). Confirms the CNF/RAC gate from `test_retiring.py` holds in the actual conversational flow, not just at the domain-function level.
+
+### `book_retiring_room` doesn't persist the booking
+**File:** `backend/app/agent/tools.py` (`book_retiring_room`)
+Unlike train PNRs, a booked retiring room isn't written to any table --
+it returns a generated reference and tariff, but there's no `retiring_room`
+row and no way to look it up again later (no `get_retiring_room_status`
+tool exists either). Deliberate scope cut: the PDD's retiring-room flow
+(Flow F) only needs to show the booking succeed in the conversation, not
+survive a refresh. Documented in the tool's own docstring so the model
+never claims otherwise. **Fix if needed:** a `retiring_room_bookings` table
+keyed by `session_id` + PNR, same pattern as `TDRClaim`.
+
+### MCP server exposes 5 of 16 tools, by design
+**File:** `backend/app/mcp_server.py`
+`TOOL_CATALOGUE`/`TOOL_HANDLERS` cover `search_trains`, `resolve_station`,
+`get_confirmation_probability`, `get_pnr_status`, and
+`check_tdr_eligibility` -- a representative slice proving the stateless
+2026-07-28-spec shape (header validation, `-32020`/`-32602` error codes,
+`session_id` as an explicit argument, deterministic `tools/list` with
+`ttlMs`/`cacheScope`), not a full mirror of the agent's own tool surface.
+Booking/mutation tools (`confirm_booking`, `file_tdr`, `book_retiring_room`)
+were deliberately left off this externally-facing surface for the demo --
+letting a third-party MCP client book real (mock) tickets or file real
+(mock) TDR claims through an unauthenticated stateless endpoint wasn't a
+decision to make silently. **Fix if needed:** add the remaining read tools
+first (`get_catering_options`, `get_retiring_room_availability`,
+`get_refund_status`), then decide deliberately on mutation-tool exposure
+and what auth story would gate it.
+
+### `/api/surface` and the honesty panel are hand-maintained, not introspected
+**Files:** `backend/app/routers/surface.py`, `frontend/components/HonestyPanel.tsx`
+The implemented-endpoints list in `surface.py` is a manually written list of
+5 routes, not generated from FastAPI's actual route table -- it'll silently
+go stale if a route is added or removed without updating it. The MCP half
+avoids this (it reads the real `TOOL_CATALOGUE` the server itself serves,
+so that part can't drift). Similarly, `HonestyPanel`'s "what's real / what's
+mocked" copy is static PDD §10 text, not derived from the codebase --
+correct as of this writing, but nothing enforces it staying correct if the
+mock data sources change. Low priority for a hackathon submission; would
+matter if the project grew past this snapshot.
+
+---
+
+*(Phase 6 entries added below as they come up.)*

@@ -30,6 +30,17 @@ def resolve(query: str) -> StationResolution:
         if best >= FUZZY_THRESHOLD:
             scored.append((s, best))
     scored.sort(key=lambda pair: pair[1], reverse=True)
+
+    # A perfect match (the query exactly equals a station's name, city, or
+    # an alias) is unambiguous even if weaker fuzzy matches also cleared
+    # the threshold -- the same "exact wins" principle already applied to
+    # the code/alias tiers above, just reached via a different field.
+    # Without this, a query that exactly names one station (e.g. "Chennai
+    # Egmore") gets bundled with every other same-city station, and a
+    # generic suffix like "Junction" pulls in unrelated stations nationwide.
+    exact = [pair for pair in scored if pair[1] >= 1.0]
+    if exact:
+        return _result(query, exact)
     return _result(query, scored)
 
 

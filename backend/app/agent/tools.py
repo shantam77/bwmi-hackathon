@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 
 from agents import RunContextWrapper, function_tool
 
-from app import store
+from app import dataset, store
 from app.agent.context import AgentContext
-from app.domain import booking, refund, search, stations, tdr, waitlist
+from app.domain import booking, catering, refund, retiring, search, stations, tdr, waitlist
 from app.engine import clock, state
 from app.models import BookingConfirmation, JourneyPlan, Leg, PassengerInput
 
@@ -316,6 +316,110 @@ async def get_refund_status(ctx: RunContextWrapper[AgentContext], pnr: str) -> d
     return claim.model_dump()
 
 
+def _resolve_station_code(query: str) -> str:
+    """Best-effort station name/alias -> code resolution for tools that
+    match against an exact code (a train's schedule, a facility list).
+    Falls back to the raw query if nothing resolves, so an unrecognized
+    string still fails with a clear "not on this route" error downstream
+    rather than a resolution error here. Unlike search_trains, true
+    ambiguity isn't handled specially -- these tools operate against one
+    specific, already-booked train's route, so the best-scoring match is
+    either the right station or the lookup correctly fails anyway."""
+    resolution = stations.resolve(query)
+    if not resolution.matches:
+        return query
+    return resolution.matches[0].station.code
+
+
+def _minutes_until_arrival(pnr_record, station_code: str, session_id: str) -> int | None:
+    """Minutes from the session's simulated now until the booked train
+    reaches station_code along its own route. None if that station isn't on
+    this train's schedule. Computed here, not trusted from the model --
+    same lesson as Flow H's date-derivation fix."""
+    stops = dataset.schedule_for_train(pnr_record.train_number)
+    stop = next((s for s in stops if s.station_code == station_code), None)
+    if stop is None or stop.arrival is None:
+        return None
+    arrival_dt = state.combine_datetime(pnr_record.date, stop.arrival, stop.day_offset)
+    now = clock.now(session_id)
+    return int((arrival_dt - now).total_seconds() // 60)
+
+
+@function_tool
+async def get_catering_options(ctx: RunContextWrapper[AgentContext], pnr: str, station: str) -> dict:
+    """Catering vendors at an upcoming halt station that can actually
+    deliver in time, filtered by the real halt timing on this booked
+    train's own schedule. Reports how many others were hidden because they
+    can't make the cutoff -- that filtering is the point. station can be a
+    station code, city name, or common alias -- resolution happens inside
+    this tool, same as search_trains."""
+    record = store.get_pnr(ctx.context.session_id, pnr)
+    if record is None:
+        return {"error": f"No booking found for PNR {pnr}."}
+    station_code = _resolve_station_code(station)
+    minutes = _minutes_until_arrival(record, station_code, ctx.context.session_id)
+    if minutes is None:
+        return {"error": f"{station} isn't a stop on {record.train_number}'s route."}
+    vendors, hidden_count = catering.available_vendors(station_code, minutes)
+    return {
+        "station": station_code,
+        "minutes_until_arrival": minutes,
+        "vendors": [v.model_dump() for v in vendors],
+        "hidden_count": hidden_count,
+    }
+
+
+@function_tool
+async def get_retiring_room_availability(
+    ctx: RunContextWrapper[AgentContext], pnr: str, station: str
+) -> dict:
+    """Retiring room options at a station, gated on the PNR's current
+    status -- waitlisted tickets never see an offer, matching the real
+    rr.irctc.co.in rule. station can be a station code, city name, or
+    common alias -- resolution happens inside this tool, same as
+    search_trains."""
+    record = store.get_pnr(ctx.context.session_id, pnr)
+    if record is None:
+        return {"error": f"No booking found for PNR {pnr}."}
+    station_code = _resolve_station_code(station)
+    status = state.compute_status(ctx.context.session_id, record)
+    options = retiring.room_options(station_code, status.effective_status)
+    return {
+        "station": station_code,
+        "eligible": status.effective_status in retiring.ELIGIBLE_STATUSES,
+        "effective_status": status.effective_status,
+        "options": [o.model_dump() for o in options],
+    }
+
+
+@function_tool
+async def book_retiring_room(
+    ctx: RunContextWrapper[AgentContext], pnr: str, station: str, room_type: str
+) -> dict:
+    """Book a retiring room for a PNR. Only call this after
+    get_retiring_room_availability confirmed eligible=true and the user
+    picked a specific room_type. This is a demo booking -- no money moves,
+    and (unlike train PNRs) it isn't persisted for later lookup. station
+    can be a station code, city name, or common alias -- resolution
+    happens inside this tool, same as search_trains."""
+    record = store.get_pnr(ctx.context.session_id, pnr)
+    if record is None:
+        return {"error": f"No booking found for PNR {pnr}."}
+    station_code = _resolve_station_code(station)
+    status = state.compute_status(ctx.context.session_id, record)
+    options = retiring.room_options(station_code, status.effective_status)
+    match = next((o for o in options if o.room_type == room_type), None)
+    if match is None:
+        return {"error": f"No available '{room_type}' room at {station} for this PNR."}
+    return {
+        "booking_reference": booking.generate_pnr(),
+        "station": station_code,
+        "room_type": match.room_type,
+        "tariff": match.tariff,
+        "note": "Demo booking -- no money moves.",
+    }
+
+
 ALL_TOOLS = [
     search_trains,
     quote_booking,
@@ -324,4 +428,7 @@ ALL_TOOLS = [
     check_tdr_eligibility,
     file_tdr,
     get_refund_status,
+    get_catering_options,
+    get_retiring_room_availability,
+    book_retiring_room,
 ]

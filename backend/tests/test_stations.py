@@ -56,3 +56,27 @@ def test_empty_query_returns_no_matches():
     result = resolve("")
     assert result.matches == []
     assert not result.ambiguous
+
+
+def test_exact_full_name_match_is_not_diluted_by_noisy_fuzzy_matches():
+    # Regression test: "Ahmedabad Junction" exactly names one station (ADI),
+    # but the generic word "Junction" also appears in a dozen+ unrelated
+    # station names (Guntakal Junction, Jhansi Junction, Mysuru Junction...).
+    # Before this fix, SequenceMatcher's ratio on the shared "Junction"
+    # substring pushed several of those over FUZZY_THRESHOLD, so an exact
+    # full-name match got incorrectly reported as ambiguous across 18
+    # stations -- found via live E2E, not by this suite originally.
+    result = resolve("ahmedabad junction")
+    assert not result.ambiguous
+    assert len(result.matches) == 1
+    assert result.matches[0].station.code == "ADI"
+    assert result.matches[0].score == 1.0
+
+
+def test_exact_name_match_wins_even_when_sharing_a_city_with_another_station():
+    # "Chennai Egmore" exactly names MS, but MAS (Chennai Central) shares
+    # the city "Chennai" closely enough to also clear the fuzzy threshold.
+    # The exact name match should win outright, not be bundled with it.
+    result = resolve("chennai egmore")
+    assert not result.ambiguous
+    assert result.matches[0].station.code == "MS"

@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { parseSSE } from "@/lib/stream";
 import type { ChatMessage, SessionResponse } from "@/lib/types";
 import DemoControls from "@/components/DemoControls";
+import HonestyPanel from "@/components/HonestyPanel";
 import Thread from "@/components/Thread";
 
 export default function Home() {
@@ -137,8 +138,9 @@ export default function Home() {
 
   return (
     <main className="bg-surface mx-auto flex h-screen max-w-[520px] flex-col">
-      <header className="border-rail border-b px-4 py-3">
+      <header className="border-rail flex items-center justify-between border-b px-4 py-3">
         <h1 className="text-ink text-sm font-semibold">Saarthi</h1>
+        <HonestyPanel />
       </header>
 
       {loaded && (
