@@ -431,3 +431,31 @@ def get_tdr_claim(session_id: str, pnr: str) -> TDRClaimRecord | None:
             expected_refund_date_iso=row.expected_refund_date.isoformat(),
             refund_amount=row.refund_amount,
         )
+
+
+# --- Admin: wipe every session's data ---------------------------------------
+
+
+def reset_all_data() -> dict[str, int]:
+    """Deletes every row in every table, across ALL sessions -- not scoped to
+    one session_id like everything else in this file. Only ever called from
+    the admin-token-gated endpoint in app/routers/admin.py; never from
+    session-facing code. Deletes children before parents (Passenger -> PNR,
+    PNR -> Journey) to respect foreign keys. Returns a per-table row count so
+    the caller can report what was actually cleared."""
+    Session = get_session_factory()
+    with Session() as db:
+        counts = {}
+        for model in (
+            Passenger,
+            PNR,
+            Journey,
+            TDRClaim,
+            FiredAlert,
+            Message,
+            AgentSessionItem,
+            ClockOffset,
+        ):
+            counts[model.__tablename__] = db.query(model).delete()
+        db.commit()
+        return counts

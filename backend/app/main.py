@@ -6,7 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import DATABASE_URL, FRONTEND_ORIGIN
 from app.db import init_db
 from app.mcp_server import router as mcp_router
-from app.routers import chat, clock as clock_router, session as session_router, surface as surface_router
+from app.routers import (
+    admin as admin_router,
+    chat,
+    clock as clock_router,
+    network as network_router,
+    session as session_router,
+    surface as surface_router,
+)
 from app.session import SessionMiddleware
 
 
@@ -33,6 +40,8 @@ app.include_router(session_router.router)
 app.include_router(clock_router.router)
 app.include_router(mcp_router)
 app.include_router(surface_router.router)
+app.include_router(network_router.router)
+app.include_router(admin_router.router)
 
 
 @app.get("/api/health")

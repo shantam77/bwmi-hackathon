@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { apiFetch } from "@/lib/api";
 import { parseSSE } from "@/lib/stream";
 import type { ChatMessage, DemoTarget, SessionResponse } from "@/lib/types";
 import DemoControls from "@/components/DemoControls";
+import GuidePanel from "@/components/GuidePanel";
 import HonestyPanel from "@/components/HonestyPanel";
 import Thread from "@/components/Thread";
 
@@ -25,13 +27,74 @@ const TOOL_LABELS: Record<string, string> = {
   book_retiring_room: "Booking your room…",
 };
 
+const DEFAULT_CHAT_WIDTH = 520;
+const MIN_PANE_WIDTH = 360;
+const CHAT_WIDTH_STORAGE_KEY = "saarthi-chat-width";
+
+function clampChatWidth(px: number): number {
+  const max = Math.max(MIN_PANE_WIDTH, window.innerWidth - MIN_PANE_WIDTH);
+  return Math.min(Math.max(px, MIN_PANE_WIDTH), max);
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [demoTarget, setDemoTarget] = useState<DemoTarget | null>(null);
+  // Which pane shows on a narrow screen (lg: and up, both always show side
+  // by side and this is ignored). Defaults to "guide" -- someone getting
+  // hands-on with this for the first time (a judge, most concretely) sees
+  // the context and mock-data explanation before the chat itself.
+  const [mobilePane, setMobilePane] = useState<"chat" | "guide">("guide");
+  // Only takes effect at lg: and up (see the CSS var / arbitrary-value
+  // trick on <main>'s className below) -- on a narrow screen the chat pane
+  // is always full width regardless of this.
+  const [chatWidth, setChatWidth] = useState(DEFAULT_CHAT_WIDTH);
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const stored = Number(window.localStorage.getItem(CHAT_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(stored) && stored > 0) {
+      setChatWidth(clampChatWidth(stored));
+    }
+  }, []);
+
+  // Grows the textarea with content, up to the max-h-32 cap set in its
+  // className (beyond that it scrolls internally instead of growing
+  // further). Resets to one line automatically once input clears, since
+  // that also runs this effect.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
+
+  function handleDividerPointerDown(e: ReactPointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = chatWidth;
+    setIsDraggingDivider(true);
+    document.body.style.userSelect = "none";
+
+    function handleMove(moveEvent: PointerEvent) {
+      setChatWidth(clampChatWidth(startWidth + (moveEvent.clientX - startX)));
+    }
+    function handleUp(upEvent: PointerEvent) {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      document.body.style.userSelect = "";
+      setIsDraggingDivider(false);
+      const finalWidth = clampChatWidth(startWidth + (upEvent.clientX - startX));
+      window.localStorage.setItem(CHAT_WIDTH_STORAGE_KEY, String(finalWidth));
+    }
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }
 
   useEffect(() => {
     apiFetch("/api/session")
@@ -206,54 +269,143 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-surface mx-auto flex h-screen max-w-[520px] flex-col">
-      <header className="border-rail flex items-center justify-between border-b px-4 py-3">
-        <h1 className="text-ink text-sm font-semibold">Saarthi</h1>
-        <div className="flex items-center gap-3">
+    <div
+      className="flex h-screen min-w-0 flex-col lg:flex-row"
+      style={{ "--chat-width": `${chatWidth}px` } as CSSProperties}
+    >
+      {/* Only meaningful below lg: -- there both panes can't fit, so this
+          picks which one is shown. At lg: and up both panes are always
+          flex regardless of mobilePane, so this bar has nothing to do and
+          is hidden entirely. */}
+      <div className="border-rail bg-surface flex gap-1 border-b px-3 pt-2 lg:hidden">
+        {(
+          [
+            ["chat", "Application"],
+            ["guide", "Guide"],
+          ] as const
+        ).map(([id, label]) => (
           <button
-            onClick={startNewChat}
-            disabled={sending}
-            className="border-rail text-ink-dim hover:border-accent hover:text-accent rounded border px-2.5 py-1 text-xs transition-colors disabled:opacity-50"
+            key={id}
+            onClick={() => setMobilePane(id)}
+            className={`-mb-px border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+              mobilePane === id
+                ? "border-accent text-accent"
+                : "text-ink-dim border-transparent hover:text-ink"
+            }`}
           >
-            New chat
+            {label}
           </button>
-          <HonestyPanel />
-        </div>
-      </header>
+        ))}
+      </div>
 
-      {loaded && (
-        <Thread
-          ref={bottomRef}
-          messages={messages}
-          onSendMessage={sendMessage}
-          disabled={sending}
-        />
-      )}
-
-      <DemoControls onSelect={sendClockAction} disabled={sending} target={demoTarget} />
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          sendMessage(input);
-        }}
-        className="border-rail flex gap-2 border-t p-3"
+      <main
+        className={`bg-surface min-h-0 flex-1 flex-col lg:h-screen lg:w-(--chat-width) lg:flex-none ${
+          mobilePane === "chat" ? "flex" : "hidden"
+        } lg:flex`}
       >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={sending}
-          placeholder="Type a message..."
-          className="bg-raised text-ink focus:ring-accent/60 flex-1 rounded px-3 py-2 text-sm outline-none focus:ring-2"
-        />
-        <button
-          type="submit"
-          disabled={sending}
-          className="bg-accent text-accent-ink rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
+        <header className="border-rail flex items-center justify-between border-b px-4 py-3">
+          <h1 className="text-ink text-sm font-semibold">Saarthi</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={startNewChat}
+              disabled={sending}
+              className="border-rail text-ink-dim hover:border-accent hover:text-accent rounded border px-2.5 py-1 text-xs transition-colors disabled:opacity-50"
+            >
+              New chat
+            </button>
+            <HonestyPanel />
+          </div>
+        </header>
+
+        {loaded && (
+          <Thread
+            ref={bottomRef}
+            messages={messages}
+            onSendMessage={sendMessage}
+            disabled={sending}
+          />
+        )}
+
+        <DemoControls onSelect={sendClockAction} disabled={sending} target={demoTarget} />
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage(input);
+          }}
+          className="border-rail flex items-end gap-2 border-t p-3"
         >
-          Send
-        </button>
-      </form>
-    </main>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter sends; Shift+Enter (or Ctrl/Cmd+Enter) inserts a line
+              // break instead -- needed since the agent explicitly asks for
+              // passenger details one line per passenger. isComposing guards
+              // against IME confirmation keystrokes (relevant here since the
+              // agent mirrors Hindi/Hinglish input) being misread as submit.
+              if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+              if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                sendMessage(input);
+                return;
+              }
+              if (e.ctrlKey || e.metaKey) {
+                // Unlike Shift+Enter, Ctrl/Cmd+Enter isn't a newline the
+                // browser inserts natively in a textarea -- it's otherwise a
+                // silent no-op, so insert one by hand at the caret.
+                e.preventDefault();
+                const el = e.currentTarget;
+                const start = el.selectionStart ?? input.length;
+                const end = el.selectionEnd ?? input.length;
+                const next = input.slice(0, start) + "\n" + input.slice(end);
+                setInput(next);
+                requestAnimationFrame(() => {
+                  el.selectionStart = el.selectionEnd = start + 1;
+                });
+              }
+              // Plain Shift+Enter: let the browser's default newline
+              // insertion happen.
+            }}
+            disabled={sending}
+            placeholder="Type a message... (Shift+Enter for a new line)"
+            rows={1}
+            className="bg-raised text-ink focus:ring-accent/60 max-h-32 flex-1 resize-none rounded px-3 py-2 text-sm leading-relaxed outline-none focus:ring-2"
+          />
+          <button
+            type="submit"
+            disabled={sending}
+            className="bg-accent text-accent-ink rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            Send
+          </button>
+        </form>
+      </main>
+
+      {/* Drag handle for the chat/guide split -- lg: only, since below that
+          only one pane is ever visible and there's nothing to resize. The
+          hit area (w-2.5) is wider than the visible line (bg-rail, 1.5px)
+          so it's actually grabbable, not a 1px target to hunt for. */}
+      <div
+        onPointerDown={handleDividerPointerDown}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize chat and guide panes"
+        className={`hidden w-2.5 shrink-0 cursor-col-resize touch-none lg:flex lg:items-stretch lg:justify-center ${
+          isDraggingDivider ? "bg-accent/10" : "hover:bg-accent/10"
+        }`}
+      >
+        <div className={`h-full w-[1.5px] ${isDraggingDivider ? "bg-accent" : "bg-rail"}`} />
+      </div>
+
+      <aside
+        className={`min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:h-screen ${
+          mobilePane === "guide" ? "flex" : "hidden"
+        } lg:flex`}
+      >
+        <GuidePanel />
+      </aside>
+    </div>
   );
 }

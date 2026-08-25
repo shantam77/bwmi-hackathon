@@ -64,4 +64,17 @@ body {
   .typing-dot {
     animation: typing-bounce 1.1s ease-in-out infinite;
   }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .spinner {
+    animation: spin 0.7s linear infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Still needs to read as "busy," just without motion. */
+  .spinner {
+    opacity: 0.6;
+  }
 }

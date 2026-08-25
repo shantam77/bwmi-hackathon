@@ -34,3 +34,8 @@ FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 # which only works over HTTPS. "development" (localhost <-> localhost) relaxes
 # both so the session cookie still round-trips over plain HTTP.
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
+
+# Gates POST /api/admin/reset-db (wipes all demo data across every session --
+# see app/routers/admin.py). Unset by default so the endpoint refuses rather
+# than silently allowing an empty-token bypass once this is deployed publicly.
+ADMIN_RESET_TOKEN = os.environ.get("ADMIN_RESET_TOKEN", "")

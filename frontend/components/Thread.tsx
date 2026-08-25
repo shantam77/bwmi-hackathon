@@ -22,7 +22,7 @@ const Thread = forwardRef<HTMLDivElement, {
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
       {messages.map((m, i) =>
         m.role === "user" ? (
-          <div key={i} className="text-ink max-w-[85%] self-end text-sm">
+          <div key={i} className="text-ink max-w-[85%] self-end text-sm whitespace-pre-line">
             {m.content}
           </div>
         ) : (

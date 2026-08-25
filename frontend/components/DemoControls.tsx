@@ -51,35 +51,55 @@ export default function DemoControls({
         <div className="flex flex-col gap-2 px-3 pb-3">
           <p className="text-ink-dim text-xs leading-relaxed">{targetLabel(target)}</p>
           <div className="flex flex-wrap gap-2">
-            {BUTTONS.map((b) => (
-              <button
-                key={b.demo_state}
-                disabled={disabled}
-                onClick={() => {
-                  setActive(b.demo_state);
-                  onSelect(b.demo_state);
-                }}
-                className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
-                  active === b.demo_state
-                    ? "border-accent text-accent"
-                    : "border-rail text-ink-dim"
-                }`}
-              >
-                {b.label}
-                {b.recommended ? " ★" : ""}
-              </button>
-            ))}
+            {BUTTONS.map((b) => {
+              const isLoading = disabled && active === b.demo_state;
+              return (
+                <button
+                  key={b.demo_state}
+                  disabled={disabled}
+                  onClick={() => {
+                    setActive(b.demo_state);
+                    onSelect(b.demo_state);
+                  }}
+                  className={`flex items-center gap-1.5 rounded border px-2 py-1 text-xs disabled:opacity-50 ${
+                    active === b.demo_state
+                      ? "border-accent text-accent"
+                      : "border-rail text-ink-dim"
+                  }`}
+                >
+                  {isLoading && (
+                    <span
+                      className="spinner border-accent/30 border-t-accent inline-block h-2.5 w-2.5 rounded-full border-2"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {b.label}
+                  {b.recommended ? " ★" : ""}
+                </button>
+              );
+            })}
             <button
               disabled={disabled}
               onClick={() => {
                 setActive(null);
                 onSelect("reset");
               }}
-              className="border-rail text-ink-dim rounded border px-2 py-1 text-xs disabled:opacity-50"
+              className="border-rail text-ink-dim flex items-center gap-1.5 rounded border px-2 py-1 text-xs disabled:opacity-50"
             >
+              {disabled && active === null && (
+                <span
+                  className="spinner border-ink-dim/30 border-t-ink-dim inline-block h-2.5 w-2.5 rounded-full border-2"
+                  aria-hidden="true"
+                />
+              )}
               Reset journey
             </button>
           </div>
+          {disabled && (
+            <p className="text-ink-dim text-[11px] italic" role="status" aria-live="polite">
+              Working -- this can take up to 10-15 seconds.
+            </p>
+          )}
         </div>
       )}
     </div>
