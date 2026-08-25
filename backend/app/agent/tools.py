@@ -9,7 +9,7 @@ from agents import RunContextWrapper, function_tool
 from app import dataset, store
 from app.agent.context import AgentContext
 from app.domain import booking, catering, refund, retiring, search, stations, tdr, waitlist
-from app.engine import clock, state
+from app.engine import clock, connection, state
 from app.models import BookingConfirmation, JourneyPlan, Leg, PassengerInput
 
 
@@ -329,6 +329,77 @@ async def file_tdr(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict:
 
 
 @function_tool
+async def cancel_booking(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict:
+    """Cancel a PNR under ORDINARY cancellation rules -- the correct
+    mechanism when the ticket's OWN train was never delayed or cancelled,
+    so it isn't TDR-eligible. This is exactly Flow H's leg 2: the delay
+    that broke the connection happened on a DIFFERENT, unrelated ticket:
+    leg 2's own train is running fine, but the passenger can no longer
+    use it. IRCTC has no connected-journey refund reason for that, so it's
+    charged and refunded like any other voluntary cancellation -- never
+    call file_tdr for a PNR whose own train wasn't delayed or cancelled.
+
+    Reports the refund/charge breakdown; doesn't persist a claim record
+    the way file_tdr does, since an ordinary cancellation is a same-day
+    charge-and-refund, not a reviewed claim with a 45-day wait."""
+    record = store.get_pnr(ctx.context.session_id, pnr)
+    if record is None:
+        return {"error": f"No booking found for PNR {pnr}."}
+
+    session_id = ctx.context.session_id
+    now = clock.now(session_id)
+    departure = state.scheduled_departure(record)
+    breakdown = refund.ordinary_cancellation_refund(
+        record.total_fare, record.travel_class, len(record.passengers), now, departure
+    )
+    return {
+        "pnr": pnr,
+        "fare_total": breakdown.fare_total,
+        "charge": breakdown.charge,
+        "refund_amount": breakdown.refund_amount,
+        "basis": breakdown.basis,
+    }
+
+
+@function_tool
+async def get_flow_h_rebooking_option(ctx: RunContextWrapper[AgentContext], leg2_pnr: str) -> dict:
+    """After the user chooses a DecisionBlock's "Travel late, rebook leg 2"
+    option, call this to get the EXACT replacement train the DecisionBlock
+    itself computed and displayed. The DecisionBlock is rendered directly
+    by the backend, not produced by a tool call -- you have no other way
+    to see which specific train it named. Reuses the identical selection
+    logic (engine.connection.find_rebooking_option) so this always matches
+    what the user was actually shown; never independently call
+    search_trains and pick a substitute, it may not be the same train.
+    Pass leg2_pnr = the PNR being replaced (the one cancel_booking was
+    just called on)."""
+    leg2 = store.get_pnr(ctx.context.session_id, leg2_pnr)
+    if leg2 is None:
+        return {"error": f"No booking found for PNR {leg2_pnr}."}
+    if not leg2.linked_pnr:
+        return {"error": f"PNR {leg2_pnr} isn't linked to another leg -- there's no Flow H rebooking for it."}
+    leg1 = store.get_pnr(ctx.context.session_id, leg2.linked_pnr)
+    if leg1 is None:
+        return {"error": f"Linked leg PNR {leg2.linked_pnr} not found."}
+
+    session_id = ctx.context.session_id
+    leg1_status = state.compute_status(session_id, leg1)
+    candidate = connection.find_rebooking_option(leg1, leg1_status, leg2)
+    if candidate is None:
+        return {"error": "No rebooking option is currently available for this leg."}
+    return {
+        "train_number": candidate.train_number,
+        "train_name": candidate.train_name,
+        "from_station": candidate.from_station,
+        "to_station": candidate.to_station,
+        "date": leg2.date,
+        "departure": candidate.departure,
+        "travel_class": candidate.travel_class,
+        "fare_per_passenger": candidate.fare_per_passenger,
+    }
+
+
+@function_tool
 async def get_refund_status(ctx: RunContextWrapper[AgentContext], pnr: str) -> dict:
     """Look up the status of a previously filed TDR claim for a PNR."""
     claim = store.get_tdr_claim(ctx.context.session_id, pnr)
@@ -448,6 +519,8 @@ ALL_TOOLS = [
     get_pnr_status,
     check_tdr_eligibility,
     file_tdr,
+    cancel_booking,
+    get_flow_h_rebooking_option,
     get_refund_status,
     get_catering_options,
     get_retiring_room_availability,

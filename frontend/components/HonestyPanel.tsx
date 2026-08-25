@@ -69,6 +69,8 @@ export default function HonestyPanel() {
               </div>
               <a
                 href="/api-surface"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-accent text-xs underline"
               >
                 See the proposed API surface &rarr;

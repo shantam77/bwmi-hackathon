@@ -12,7 +12,7 @@ const Thread = forwardRef<HTMLDivElement, {
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
         <p className="text-ink text-lg">Where are you going?</p>
         <p className="text-ink-dim text-sm">
-          Try: &ldquo;Bengaluru to Varanasi on the 4th, 2 people&rdquo;
+          Try: &ldquo;Bengaluru to Varanasi on 4 September, 2 people&rdquo;
         </p>
       </div>
     );

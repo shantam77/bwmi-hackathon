@@ -354,3 +354,39 @@ Fixed with a status line, always visible above the Demo Controls buttons, comput
 152/152 backend tests pass. Verified live across all three states end to end (no booking, single leg, both legs of a connection) -- zero console errors, label updates correctly at each stage without a page refresh.
 
 **Testing-methodology lesson learned twice this project** (Phase 5's streaming false alarm, and the refresh timing above): when an E2E script's *own* screenshot timing races an async operation (a stream still arriving, a rehydration fetch still in flight), the result looks exactly like a real product bug from a screenshot alone. Both times the fix was the same -- wait for an actual, unambiguous completion signal (the `done` SSE event / the Send button re-enabling) instead of "some expected text is now visible," before concluding anything is broken.
+
+---
+
+## From a full thorough dry-run of the actual demo script
+
+Asked explicitly to run the exact demo script end to end, thoroughly, as a judge would, before recording anything. Found five real things, all fixed and re-verified live:
+
+### The empty-state hint text was itself genuinely ambiguous
+**File:** `frontend/components/Thread.tsx`
+The suggested example ("Try: 'Bengaluru to Varanasi on the 4th, 2 people'") -- typed exactly as shown, the very first thing anyone would do -- triggered a clarification request ("which month and year is 'the 4th'?") instead of a search. Correct agent behavior (a bare day-of-month really is ambiguous, per the same "never guess" discipline used everywhere else in this build), but it meant the single most likely first interaction breaks the "prove competence fast" beat before it starts. Tested several phrasings directly rather than guessing: adding a month name alone ("4 September" or "September 4th"), even with no year, resolves cleanly every time -- the model correctly infers the nearest future occurrence. Fixed the hint text to "Bengaluru to Varanasi on 4 September, 2 people."
+
+### Flow H's "Abandon both": leg 2's delay state leaked from leg 1, corrupting its TDR filing
+**Files:** `backend/app/engine/state.py`, `backend/tests/test_state.py`
+The most serious finding. Clicked "Choose Abandon both" live and the response showed BOTH PNRs' TDR filed under reason LATE_3H for full fare -- but leg 2's own train (12539) was never delayed; only leg 1 (12295) was. Traced to `compute_status()`: the demo clock's `delay_minutes`/`is_cancelled` were applied unconditionally to *whichever* PNR was passed in, not gated to the PNR the Demo Controls click was actually "about" (`store.primary_pnr()`). Querying leg 2's status independently (which is exactly what happens when the agent later calls `check_tdr_eligibility` on it) silently inherited leg 1's artificial delay.
+
+Fixed by gating both the demo-state delay and the demo-state cancellation to only apply when the PNR being queried IS the session's primary PNR; any other PNR falls through to genuine elapsed-time computation. Added two regression tests (`test_demo_delay_does_not_leak_onto_a_different_pnr_in_the_same_session`, `test_demo_cancellation_does_not_leak_onto_a_different_pnr_in_the_same_session`) -- the first iteration of the delay test used a same-day-earlier fixture for leg 2 and passed for the wrong reason (elapsed-time fallback happened to also read 0 differently than expected), caught by reasoning through the actual numbers rather than trusting a green test, then corrected to use a realistic next-day leg 2 fixture matching the real flagship connection.
+
+### No tool existed for leg 2's actual refund mechanism
+**File:** `backend/app/agent/tools.py`
+Direct consequence of the above, but a real gap even once `compute_status` was fixed: `check_tdr_eligibility` would now correctly say leg 2 isn't TDR-eligible, but the agent had no other tool to actually process its refund -- `file_tdr` is the only refund-filing tool that existed. Added `cancel_booking`, a thin wrapper over `domain/refund.ordinary_cancellation_refund()`, and told the prompt explicitly: leg 1 (genuinely delayed) is `file_tdr`, leg 2 (running fine, just unusable) is `cancel_booking`, never the other way round.
+
+### The agent had no way to know which train the DecisionBlock actually named
+**File:** `backend/app/agent/tools.py`
+Testing "Travel late, rebook leg 2" surfaced a deeper structural gap: the DecisionBlock is rendered directly by the backend (`/api/clock`), never produced by a tool call -- the model has *no* programmatic access to which specific replacement train it displayed. First attempt at fixing this via prompt wording alone ("book the DecisionBlock's own named train") failed exactly as it should have: the agent honestly replied "I don't have the DecisionBlock details," rather than guessing. Fixed properly with `get_flow_h_rebooking_option`, which reuses `engine.connection.find_rebooking_option()` -- the *identical* selection logic the DecisionBlock itself used -- guaranteeing the agent always books the exact train the user was actually shown, never an independently-searched substitute that might differ.
+
+### Choosing an option stopped halfway and asked "shall I proceed?"
+**File:** `backend/app/agent/prompt.py`
+"Abandon both" completed in one click; "Travel late, rebook leg 2" cancelled the old ticket then stopped to ask permission before rebooking -- an inconsistent, extra step for an action the DecisionBlock button click had already fully specified (train, fare, everything) and the user had already explicitly chosen. Added an explicit prompt rule: a DecisionBlock choice is carried out completely in one turn, no intermediate confirmation, since the button click itself already was the confirmation. Re-verified live: leg 2 is now cancelled and the replacement is booked in a single response, using the exact train and fare the DecisionBlock named.
+
+### The honesty panel's "learn more" link navigated away from the live session
+**File:** `frontend/components/HonestyPanel.tsx`
+"See the proposed API surface" had no `target="_blank"`, so clicking it from mid-conversation navigated the whole tab away from the chat -- found while testing it back-to-back with a hard refresh and New Chat check, where it silently broke the rest of the test script's assumptions about which page it was on. A judge doing the same thing loses their place with no easy way back except the browser's own back button. Added `target="_blank" rel="noopener noreferrer"` so it opens alongside the live session instead of replacing it.
+
+**Also explicitly re-verified as correct, not bugs:** hard refresh mid-DecisionBlock restores both the DecisionBlock and the Demo Controls target label correctly (an earlier check that seemed to show the label missing was the test script's own mistake -- it checked the label's text while the Demo Controls panel was still collapsed, where it's correctly not in the DOM at all); New Chat correctly resets the Demo Controls label back to "Book a ticket to activate Demo controls."
+
+154/154 backend tests pass throughout (152 existing + 2 new regression tests for the delay-leak fix). Every fix in this section was verified live against the real model, not assumed from the code.

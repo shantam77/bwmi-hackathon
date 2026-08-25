@@ -89,12 +89,26 @@ def compute_status(session_id: str, pnr: PNRRecord) -> JourneyStatus:
     demo_state = store.get_demo_state(session_id)
     departure = scheduled_departure(pnr)
 
-    is_cancelled = demo_state == "cancelled"
+    # A Demo Controls click is conceptually "about" one specific PNR --
+    # store.primary_pnr(), the same PNR /api/clock applies it to -- not the
+    # whole session. Without this check, calling compute_status on a
+    # DIFFERENT PNR in the same session (leg 2 of a connecting journey,
+    # whose own train was never actually delayed or cancelled) silently
+    # inherited leg 1's demo state too: a live test of Flow H's "Abandon
+    # both" choice filed leg 2's TDR as a 3-hour-delay claim for the full
+    # fare, when leg 2 was never delayed at all -- it should have gone
+    # through ordinary_cancellation_refund (which connection.py's own
+    # DecisionBlock math already does correctly; this bug was specifically
+    # in what a LATER, independent check_tdr_eligibility call on leg 2 saw).
+    primary = store.primary_pnr(session_id)
+    demo_state_applies = primary is not None and primary.pnr == pnr.pnr
+
+    is_cancelled = demo_state_applies and demo_state == "cancelled"
     chart_prepared = now >= departure - timedelta(hours=CHART_PREPARATION_HOURS_BEFORE)
 
     if is_cancelled:
         delay_minutes = 0
-    elif demo_state in DELAY_DEMO_STATE_MINUTES:
+    elif demo_state_applies and demo_state in DELAY_DEMO_STATE_MINUTES:
         # The delay a demo button represents is a fact about the disruption
         # (what gets reported to the user), not "now minus scheduled
         # departure" -- "now" is deliberately set some minutes *before* the

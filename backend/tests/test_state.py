@@ -40,10 +40,25 @@ DOES_NOT_CLEAR_TRAIN = dict(
     arrival_day_offset=0,
     travel_class="SL",
 )
+# 12539 NGP -> BSB, confirmed -- the real flagship's leg 2, departing the
+# NEXT calendar day after leg 1's evening departure. Used specifically
+# where a test needs leg 2 to still be in the future relative to leg 1's
+# demo-adjusted "now" (unlike DOES_NOT_CLEAR_TRAIN's same-day 09:30, which
+# a delay_3h-shifted "now" of ~22:33 has already passed).
+LEG2_TRAIN = dict(
+    train_number="12539",
+    train_name="Nagpur Varanasi Express",
+    from_station="NGP",
+    to_station="BSB",
+    departure="08:40",
+    arrival="21:10",
+    arrival_day_offset=0,
+    travel_class="SL",
+)
 
 
-def _book(session_id, train, status, date="2026-09-04"):
-    pnr_number = f"test{session_id[-6:]}"
+def _book(session_id, train, status, date="2026-09-04", pnr_suffix=""):
+    pnr_number = f"test{session_id[-6:]}{pnr_suffix}"
     store.create_pnr(
         session_id=session_id,
         pnr_number=pnr_number,
@@ -180,6 +195,49 @@ def test_rac_status_maps_to_rac_and_is_retiring_room_eligible(fake_session_id):
     status = state.compute_status(fake_session_id, pnr)
     assert status.effective_status == "RAC"
     assert status.retiring_room_eligible is True
+
+
+def test_demo_delay_does_not_leak_onto_a_different_pnr_in_the_same_session(fake_session_id):
+    # Regression test for a real bug found via live E2E testing Flow H:
+    # applying "delay_3h" to the primary PNR (leg 1) must NOT make a
+    # DIFFERENT PNR booked in the same session (leg 2) also report as
+    # delayed -- leg 2's own train was never actually late. Found because
+    # choosing "Abandon both" filed leg 2's TDR as a 3-hour-delay claim for
+    # the full fare instead of an ordinary cancellation at 50%.
+    leg1 = _book(fake_session_id, CLEARS_TRAIN, "WL", pnr_suffix="a")
+    leg2 = _book(fake_session_id, LEG2_TRAIN, "AVAILABLE", date="2026-09-05", pnr_suffix="b")
+
+    state.apply_demo_state(fake_session_id, leg1, "delay_3h")
+
+    leg1_status = state.compute_status(fake_session_id, leg1)
+    leg2_status = state.compute_status(fake_session_id, leg2)
+
+    assert leg1_status.delay_minutes == 200
+    assert leg1_status.tdr_eligible is True
+
+    # leg2 departs the next morning -- still in the future relative to
+    # leg1's demo-shifted "now" (~22:33 the evening before), so this
+    # correctly isolates the leak (0 = fixed) from the unrelated, correct
+    # "already departed" fallback (which a same-day-earlier leg2 would hit
+    # regardless of the leak).
+    assert leg2_status.delay_minutes == 0
+    assert leg2_status.tdr_eligible is False
+
+
+def test_demo_cancellation_does_not_leak_onto_a_different_pnr_in_the_same_session(fake_session_id):
+    leg1 = _book(fake_session_id, CLEARS_TRAIN, "WL", pnr_suffix="a")
+    leg2 = _book(fake_session_id, DOES_NOT_CLEAR_TRAIN, "AVAILABLE", pnr_suffix="b")
+
+    state.apply_demo_state(fake_session_id, leg1, "cancelled")
+
+    leg1_status = state.compute_status(fake_session_id, leg1)
+    leg2_status = state.compute_status(fake_session_id, leg2)
+
+    assert leg1_status.is_cancelled is True
+    assert leg1_status.tdr_auto_refund is True
+
+    assert leg2_status.is_cancelled is False
+    assert leg2_status.tdr_auto_refund is False
 
 
 def test_reset_clears_demo_state_and_offset(fake_session_id):
