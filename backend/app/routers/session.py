@@ -9,12 +9,34 @@ import uuid
 
 from fastapi import APIRouter, Request, Response
 
-from app import store
+from app import dataset, store
 from app.config import ENVIRONMENT
 from app.engine import state
 from app.session import SESSION_COOKIE_NAME
 
 router = APIRouter()
+
+
+def _demo_target(session_id: str) -> dict | None:
+    """Describes whichever PNR Demo Controls will actually act on --
+    store.primary_pnr(), the FIRST-booked PNR, not store.latest_pnr() (used
+    by the `journey`/`state` fields below, which describe the most
+    recently booked leg instead). Those two are the same PNR for a
+    single-leg journey but different ones for a connecting journey -- this
+    exists so the frontend can label Demo Controls with the actual truth
+    rather than assuming, which was the ambiguity a user flagged directly:
+    for a two-leg journey, "delay 3h+" for which train?"""
+    primary = store.primary_pnr(session_id)
+    if primary is None:
+        return None
+    return {
+        "pnr": primary.pnr,
+        "train_number": primary.train_number,
+        "train_name": primary.train_name,
+        "from_station_name": dataset.station_name(primary.from_station),
+        "to_station_name": dataset.station_name(primary.to_station),
+        "is_first_leg_of_connection": primary.linked_pnr is not None,
+    }
 
 
 @router.get("/api/session")
@@ -52,7 +74,17 @@ async def get_session(request: Request) -> dict:
         "journey": pnr.model_dump() if pnr else None,
         "state": journey_status.model_dump() if journey_status else None,
         "active_deadlines": active_deadlines,
+        "demo_target": _demo_target(session_id),
     }
+
+
+@router.get("/api/demo-target")
+async def get_demo_target(request: Request) -> dict:
+    """Lightweight companion to the `demo_target` field on GET /api/session
+    -- the frontend re-fetches just this after a booking completes, rather
+    than the whole session (all messages) again, to keep the Demo Controls
+    label current without a wasteful full re-fetch on every booking."""
+    return {"demo_target": _demo_target(request.state.session_id)}
 
 
 @router.post("/api/session/new")

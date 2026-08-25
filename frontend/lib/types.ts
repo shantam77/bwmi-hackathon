@@ -121,6 +121,15 @@ export interface ChatMessage {
   pending?: boolean;
 }
 
+export interface DemoTarget {
+  pnr: string;
+  train_number: string;
+  train_name: string;
+  from_station_name: string;
+  to_station_name: string;
+  is_first_leg_of_connection: boolean;
+}
+
 export interface SessionResponse {
   session_id: string;
   messages: (ChatMessage & { created_at: string })[];
@@ -128,4 +137,5 @@ export interface SessionResponse {
   journey: unknown;
   state: unknown;
   active_deadlines: unknown[];
+  demo_target: DemoTarget | null;
 }

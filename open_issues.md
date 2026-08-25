@@ -340,4 +340,17 @@ All of this had the real data sitting right there unused -- `PNRRecord` already 
 
 152/152 backend tests unaffected -- the handful that check alert/DecisionBlock content use substring assertions ("Leg 1" in label, fare figure in message), not exact-string matches, so none needed updating for the richer wording.
 
+### Demo Controls silently acted on one PNR with zero UI indication of which
+**Files:** `backend/app/routers/session.py`, `frontend/lib/types.ts`, `frontend/app/page.tsx`, `frontend/components/DemoControls.tsx`
+Raised directly: "for a multi-leg journey, 'chart prepared' for which train?" Traced the actual mechanism precisely before proposing anything -- `/api/clock` always acts on `store.primary_pnr()`, the *first* PNR booked in the session (deliberately leg 1 for a connecting journey, since that's the train whose delay can break the connection). That targeting logic is already correct; the problem was entirely that nothing in the UI said so. Someone handed this app cold would see generic buttons with no indication of which train they touch.
+
+Also found while investigating: `GET /api/session`'s `journey`/`state` fields use `latest_pnr()` (the *most recently* booked PNR) -- a different PNR than Demo Controls acts on, for a connecting journey. Not a live bug today since the frontend doesn't currently render those fields anywhere, but it meant the fix couldn't just reuse that existing data without introducing a *new* mismatch -- had to expose the actual Demo-Controls target specifically.
+
+Fixed with a status line, always visible above the Demo Controls buttons, computed from a new `demo_target` field (backed by `primary_pnr()`, matching the real target exactly) plus a lightweight `GET /api/demo-target` the frontend calls after every booking completes (not a full session re-fetch, which would re-pull the entire message history just to learn one PNR):
+- No PNR booked yet: "Book a ticket to activate Demo controls." (closes a second, quieter ambiguity -- clicking a button with nothing booked previously did nothing, silently)
+- One ticket: "Acting on 12295 Sanghamitra Express · KSR Bengaluru City → Nagpur Junction"
+- A connecting journey: "Acting on your journey's first leg -- 12295 Sanghamitra Express · KSR Bengaluru City → Nagpur Junction. A delay here is what could break your connection." -- states the *why leg 1* answer before anyone has to ask.
+
+152/152 backend tests pass. Verified live across all three states end to end (no booking, single leg, both legs of a connection) -- zero console errors, label updates correctly at each stage without a page refresh.
+
 **Testing-methodology lesson learned twice this project** (Phase 5's streaming false alarm, and the refresh timing above): when an E2E script's *own* screenshot timing races an async operation (a stream still arriving, a rehydration fetch still in flight), the result looks exactly like a real product bug from a screenshot alone. Both times the fix was the same -- wait for an actual, unambiguous completion signal (the `done` SSE event / the Send button re-enabling) instead of "some expected text is now visible," before concluding anything is broken.

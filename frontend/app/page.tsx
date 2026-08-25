@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { parseSSE } from "@/lib/stream";
-import type { ChatMessage, SessionResponse } from "@/lib/types";
+import type { ChatMessage, DemoTarget, SessionResponse } from "@/lib/types";
 import DemoControls from "@/components/DemoControls";
 import HonestyPanel from "@/components/HonestyPanel";
 import Thread from "@/components/Thread";
@@ -30,6 +30,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [demoTarget, setDemoTarget] = useState<DemoTarget | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,10 +51,27 @@ export default function Home() {
               }))
             : prev,
         );
+        setDemoTarget(data.demo_target);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
   }, []);
+
+  // Demo Controls always acts on the FIRST PNR booked this session (see
+  // store.primary_pnr's own docstring) -- refreshed after every booking so
+  // its label never lies about which train it's actually targeting. A
+  // lightweight endpoint, not a full /api/session re-fetch, since that
+  // would re-pull the entire message history just to learn one PNR.
+  async function refreshDemoTarget() {
+    try {
+      const res = await apiFetch("/api/demo-target");
+      const data = await res.json();
+      setDemoTarget(data.demo_target);
+    } catch {
+      // Non-critical -- the label just stays as it was; the next
+      // successful booking or refresh will catch it up.
+    }
+  }
 
   useEffect(() => {
     // requestAnimationFrame so this runs after layout has settled -- without
@@ -125,6 +143,9 @@ export default function Home() {
             };
             return next;
           });
+          if (event.component === "PNRConfirmation") {
+            refreshDemoTarget();
+          }
         } else if (event.type === "done") {
           break;
         }
@@ -138,6 +159,7 @@ export default function Home() {
     if (sending) return;
     await apiFetch("/api/session/new", { method: "POST" });
     setMessages([]);
+    setDemoTarget(null);
   }
 
   async function sendClockAction(demoState: string) {
@@ -208,7 +230,7 @@ export default function Home() {
         />
       )}
 
-      <DemoControls onSelect={sendClockAction} disabled={sending} />
+      <DemoControls onSelect={sendClockAction} disabled={sending} target={demoTarget} />
 
       <form
         onSubmit={(e) => {
